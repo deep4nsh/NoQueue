@@ -54,16 +54,18 @@ class DefaultFirebaseOptions {
     appId: '1:593549890895:android:e3ac2582f41a52b459a13a',
     messagingSenderId: '593549890895',
     projectId: 'noqueue-d92ce',
+    databaseURL: 'https://noqueue-d92ce-default-rtdb.firebaseio.com',
     storageBucket: 'noqueue-d92ce.firebasestorage.app',
   );
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyDetnKuX49N9AT8PnI2gvG4_4MIMjpmjeI',
-    appId: '1:593549890895:ios:43fb4b4f0851672059a13a',
+    appId: '1:593549890895:ios:a86407864bdf3afe59a13a',
     messagingSenderId: '593549890895',
     projectId: 'noqueue-d92ce',
+    databaseURL: 'https://noqueue-d92ce-default-rtdb.firebaseio.com',
     storageBucket: 'noqueue-d92ce.firebasestorage.app',
     androidClientId: '593549890895-fipc2dp8seigb82pri7v6gch3vqm6oih.apps.googleusercontent.com',
-    iosClientId: '593549890895-7avvotlscg0v11e5t3fcko28j9be91fl.apps.googleusercontent.com',
-    iosBundleId: 'com.example.customerApp',
+    iosClientId: '593549890895-a4p8cbd5397uhegh0rcrs1l9c1hbvrgf.apps.googleusercontent.com',
+    iosBundleId: 'com.noqueue.customerApp',
   );
 }

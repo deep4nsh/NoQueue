@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 import '../providers/registration_provider.dart';
@@ -74,6 +75,26 @@ class BranchDashboardScreen extends ConsumerWidget {
                   ),
                   icon: const Icon(Icons.share),
                   label: const Text('Share QR'),
+                ),
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: 250,
+                height: 50,
+                child: FilledButton.icon(
+                  onPressed: () => context.push('/receptionist'),
+                  icon: const Icon(Icons.queue_play_next),
+                  label: const Text('Open Queue'),
+                ),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: 250,
+                height: 50,
+                child: OutlinedButton.icon(
+                  onPressed: () => context.push('/services'),
+                  icon: const Icon(Icons.medical_services_outlined),
+                  label: const Text('Manage Services'),
                 ),
               ),
             ],

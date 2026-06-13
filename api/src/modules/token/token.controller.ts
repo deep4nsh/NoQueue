@@ -1,0 +1,63 @@
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+} from '@nestjs/common';
+import { ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
+import { TokenService } from './token.service';
+import { JoinTokenDto } from './dto/join-token.dto';
+import { EmergencyTokenDto } from './dto/emergency-token.dto';
+import { TokenStatus } from './token.schema';
+
+@ApiTags('token')
+@Controller('token')
+export class TokenController {
+  constructor(private readonly tokenService: TokenService) {}
+
+  @Post('join')
+  @ApiOperation({ summary: 'Customer joins a queue (normal token)' })
+  join(@Body() dto: JoinTokenDto) {
+    return this.tokenService.join(dto);
+  }
+
+  @Post('emergency')
+  @ApiOperation({ summary: 'Receptionist issues an emergency token (jumps queue)' })
+  createEmergency(@Body() dto: EmergencyTokenDto) {
+    return this.tokenService.createEmergency(dto);
+  }
+
+  @Get('queue/:queueId')
+  @ApiOperation({ summary: 'Get all tokens for a queue, optionally filtered by status' })
+  @ApiQuery({ name: 'status', required: false, isArray: true, enum: TokenStatus })
+  getQueueTokens(
+    @Param('queueId') queueId: string,
+    @Query('status') status?: TokenStatus | TokenStatus[],
+  ) {
+    const statusArray = status
+      ? Array.isArray(status) ? status : [status]
+      : undefined;
+    return this.tokenService.getQueueTokens(queueId, statusArray);
+  }
+
+  @Get(':id')
+  @ApiOperation({ summary: 'Get a token by ID' })
+  findOne(@Param('id') id: string) {
+    return this.tokenService.findById(id);
+  }
+
+  @Patch(':id/complete')
+  @ApiOperation({ summary: 'Mark a token as completed' })
+  complete(@Param('id') id: string) {
+    return this.tokenService.complete(id);
+  }
+
+  @Patch(':id/cancel')
+  @ApiOperation({ summary: 'Cancel a token' })
+  cancel(@Param('id') id: string) {
+    return this.tokenService.cancel(id);
+  }
+}
