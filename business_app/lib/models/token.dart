@@ -33,6 +33,84 @@ enum TokenStatus {
   }
 }
 
+enum ChargeStatus { pending, confirmed, waived;
+
+  String get apiValue {
+    switch (this) {
+      case ChargeStatus.pending:
+        return 'PENDING';
+      case ChargeStatus.confirmed:
+        return 'CONFIRMED';
+      case ChargeStatus.waived:
+        return 'WAIVED';
+    }
+  }
+
+  static ChargeStatus fromString(String v) {
+    switch (v.toUpperCase()) {
+      case 'CONFIRMED':
+        return ChargeStatus.confirmed;
+      case 'WAIVED':
+        return ChargeStatus.waived;
+      default:
+        return ChargeStatus.pending;
+    }
+  }
+}
+
+class ChargeInfo {
+  final int defaultAmount;
+  final int? finalAmount;
+  final String currency;
+  final ChargeStatus status;
+  final bool isEditable;
+  final int? minAmount;
+  final int? maxAmount;
+
+  const ChargeInfo({
+    required this.defaultAmount,
+    this.finalAmount,
+    this.currency = 'INR',
+    this.status = ChargeStatus.pending,
+    this.isEditable = true,
+    this.minAmount,
+    this.maxAmount,
+  });
+
+  int get effectiveAmount => finalAmount ?? defaultAmount;
+  double get effectiveAmountInRupees => effectiveAmount / 100;
+  double get defaultAmountInRupees => defaultAmount / 100;
+  bool get isPending => status == ChargeStatus.pending;
+
+  factory ChargeInfo.fromJson(Map<String, dynamic> json) {
+    return ChargeInfo(
+      defaultAmount: (json['defaultAmount'] as num?)?.toInt() ?? 0,
+      finalAmount: (json['finalAmount'] as num?)?.toInt(),
+      currency: json['currency'] ?? 'INR',
+      status: ChargeStatus.fromString(json['status'] ?? 'PENDING'),
+      isEditable: json['isEditable'] ?? true,
+      minAmount: (json['minAmount'] as num?)?.toInt(),
+      maxAmount: (json['maxAmount'] as num?)?.toInt(),
+    );
+  }
+
+  ChargeInfo copyWith({
+    int? finalAmount,
+    ChargeStatus? status,
+    bool clearFinalAmount = false,
+  }) {
+    return ChargeInfo(
+      defaultAmount: defaultAmount,
+      finalAmount: clearFinalAmount ? null : (finalAmount ?? this.finalAmount),
+      currency: currency,
+      status: status ?? this.status,
+      isEditable: isEditable,
+      minAmount: minAmount,
+      maxAmount: maxAmount,
+    );
+  }
+}
+
 class TokenServiceSnapshot {
   final String? serviceId;
   final String? name;
@@ -68,10 +146,12 @@ class TokenModel {
   final int position;
   final int estimatedWaitMinutes;
   final TokenServiceSnapshot? service;
+  final ChargeInfo? charge;
   final DateTime joinedAt;
   final String notes;
 
   bool get isEmergency => priority == TokenPriority.emergency;
+  bool get hasCharge => charge != null;
 
   const TokenModel({
     required this.id,
@@ -85,6 +165,7 @@ class TokenModel {
     required this.position,
     required this.estimatedWaitMinutes,
     this.service,
+    this.charge,
     required this.joinedAt,
     this.notes = '',
   });
@@ -107,6 +188,9 @@ class TokenModel {
       service: json['service'] != null
           ? TokenServiceSnapshot.fromJson(json['service'])
           : null,
+      charge: json['charge'] != null
+          ? ChargeInfo.fromJson(json['charge'])
+          : null,
       joinedAt: json['joinedAt'] != null
           ? DateTime.parse(json['joinedAt'])
           : DateTime.now(),
@@ -118,6 +202,7 @@ class TokenModel {
     TokenStatus? status,
     int? position,
     int? estimatedWaitMinutes,
+    ChargeInfo? charge,
   }) {
     return TokenModel(
       id: id,
@@ -131,6 +216,7 @@ class TokenModel {
       position: position ?? this.position,
       estimatedWaitMinutes: estimatedWaitMinutes ?? this.estimatedWaitMinutes,
       service: service,
+      charge: charge ?? this.charge,
       joinedAt: joinedAt,
       notes: notes,
     );

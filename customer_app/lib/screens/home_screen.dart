@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../models/models.dart';
 import '../providers/auth_provider.dart';
 import '../providers/notification_provider.dart';
+import '../providers/queue_provider.dart';
 import '../providers/token_provider.dart';
 import '../theme/app_theme.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -326,7 +328,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
   // ─── ACTIVE TOKEN VIEW ───────────────────────────────────────────────────
 
-  Widget _buildActiveTokenView(dynamic token) {
+  Widget _buildActiveTokenView(Token token) {
+    final queue = ref.watch(queueProvider);
     return SingleChildScrollView(
       child: Column(
         children: [
@@ -428,7 +431,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     children: [
                       _buildStatChip(
                         label: 'Now Serving',
-                        value: 'A-094',
+                        value: queue?.currentDisplayToken ?? '—',
                         icon: Icons.play_circle_outline_rounded,
                         color: AppTheme.primaryColor,
                       ),

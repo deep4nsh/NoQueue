@@ -1,15 +1,30 @@
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'config/router.dart';
 import 'firebase_options.dart';
+import 'services/notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+  await NotificationService.initialize(onTap: _handleNotificationTap);
   runApp(const ProviderScope(child: BusinessApp()));
+}
+
+void _handleNotificationTap(RemoteMessage message) {
+  final type = message.data['type'] as String? ?? '';
+  switch (type) {
+    case 'TOKEN_JOINED':
+    case 'EMERGENCY_TOKEN':
+    case 'QUEUE_UPDATE':
+      appRouter.go('/receptionist');
+    default:
+      appRouter.go('/branch-dashboard');
+  }
 }
 
 class BusinessApp extends StatelessWidget {

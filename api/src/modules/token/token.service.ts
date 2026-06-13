@@ -17,6 +17,7 @@ import { QueueEntity, QueueDocument, QueueStatus } from '../queue/queue.schema';
 import { ServiceEntity, ServiceDocument } from '../service/service.schema';
 import { JoinTokenDto } from './dto/join-token.dto';
 import { EmergencyTokenDto } from './dto/emergency-token.dto';
+import { UpdateChargeDto } from './dto/update-charge.dto';
 
 @Injectable()
 export class TokenService {
@@ -152,18 +153,65 @@ export class TokenService {
 
   async complete(id: string): Promise<TokenDocument> {
     const token = await this.findById(id);
+    const queue = await this.queueModel.findById(token.queueId).exec();
+    const avgTime = queue?.averageServiceTime ?? 10;
+
     token.status = TokenStatus.COMPLETED;
     token.completedAt = new Date();
+
+    // Auto-confirm a still-pending charge with the default amount
+    if (token.charge && token.charge.status === ChargeStatus.PENDING) {
+      token.charge.finalAmount = token.charge.defaultAmount;
+      token.charge.status = ChargeStatus.CONFIRMED;
+      token.charge.editedAt = new Date();
+    }
+
     await token.save();
-    await this._recalculatePositions(token.queueId, 10);
+    await this._recalculatePositions(token.queueId, avgTime);
     return token;
   }
 
   async cancel(id: string): Promise<TokenDocument> {
     const token = await this.findById(id);
+    const queue = await this.queueModel.findById(token.queueId).exec();
+    const avgTime = queue?.averageServiceTime ?? 10;
+
     token.status = TokenStatus.CANCELLED;
     await token.save();
-    await this._recalculatePositions(token.queueId, 10);
+    await this._recalculatePositions(token.queueId, avgTime);
+    return token;
+  }
+
+  async updateCharge(id: string, dto: UpdateChargeDto): Promise<TokenDocument> {
+    const token = await this.findById(id);
+
+    if (!token.charge) {
+      throw new BadRequestException('This token has no charge information');
+    }
+
+    if (dto.finalAmount !== undefined && token.service?.serviceId) {
+      const service = await this.serviceModel.findById(token.service.serviceId).exec();
+      if (service) {
+        if (!service.charge.isEditable) {
+          throw new BadRequestException('Charge is not editable for this service');
+        }
+        if (service.charge.minAmount !== null && dto.finalAmount < service.charge.minAmount) {
+          throw new BadRequestException(
+            `Charge cannot be less than ₹${service.charge.minAmount / 100}`,
+          );
+        }
+        if (service.charge.maxAmount !== null && dto.finalAmount > service.charge.maxAmount) {
+          throw new BadRequestException(
+            `Charge cannot exceed ₹${service.charge.maxAmount / 100}`,
+          );
+        }
+      }
+    }
+
+    token.charge.finalAmount = dto.finalAmount ?? token.charge.defaultAmount;
+    token.charge.status = dto.status as ChargeStatus;
+    token.charge.editedAt = new Date();
+    await token.save();
     return token;
   }
 

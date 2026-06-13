@@ -54,9 +54,10 @@ class _RegisterBusinessScreenState
                 child: ElevatedButton(
                   onPressed: () {
                     if (_formKey.currentState!.validate()) {
-                      ref
-                          .read(registrationProvider.notifier)
-                          .setBusinessName(_nameController.text.trim());
+                      ref.read(registrationProvider.notifier).setBusiness(
+                            id: 'biz_mock',
+                            name: _nameController.text.trim(),
+                          );
                       context.go('/create-branch');
                     }
                   },

@@ -11,6 +11,7 @@ import { ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { TokenService } from './token.service';
 import { JoinTokenDto } from './dto/join-token.dto';
 import { EmergencyTokenDto } from './dto/emergency-token.dto';
+import { UpdateChargeDto } from './dto/update-charge.dto';
 import { TokenStatus } from './token.schema';
 
 @ApiTags('token')
@@ -59,5 +60,11 @@ export class TokenController {
   @ApiOperation({ summary: 'Cancel a token' })
   cancel(@Param('id') id: string) {
     return this.tokenService.cancel(id);
+  }
+
+  @Patch(':id/charge')
+  @ApiOperation({ summary: 'Set or update the charge for a token (Confirmed or Waived)' })
+  updateCharge(@Param('id') id: string, @Body() dto: UpdateChargeDto) {
+    return this.tokenService.updateCharge(id, dto);
   }
 }

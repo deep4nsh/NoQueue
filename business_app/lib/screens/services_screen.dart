@@ -20,9 +20,9 @@ class _ServicesScreenState extends ConsumerState<ServicesScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final businessId = ref.read(registrationProvider).businessId;
-      if (businessId.isNotEmpty) {
-        ref.read(serviceProvider.notifier).loadServices(businessId);
-      }
+      ref.read(serviceProvider.notifier).loadServices(
+            businessId.isEmpty ? 'biz_mock' : businessId,
+          );
     });
   }
 

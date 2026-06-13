@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/token.dart';
 import '../models/service.dart';
@@ -114,6 +115,40 @@ class QueueStateNotifier extends Notifier<QueueState> {
     );
   }
 
+  Future<void> completeToken({int? finalAmount, ChargeStatus? chargeStatus}) async {
+    final current = state.serving;
+    if (current == null) return;
+
+    state = state.copyWith(isLoading: true);
+    await Future.delayed(const Duration(milliseconds: 400));
+
+    // Mock — swap with:
+    //   PATCH /api/v1/token/:id/charge  (if charge exists)
+    //   PATCH /api/v1/token/:id/complete
+    final isWaived = chargeStatus == ChargeStatus.waived;
+    final updatedCharge = current.hasCharge
+        ? current.charge!.copyWith(
+            finalAmount: isWaived ? null : finalAmount,
+            status: chargeStatus ?? ChargeStatus.confirmed,
+            clearFinalAmount: isWaived,
+          )
+        : null;
+
+    final completed = current.copyWith(
+      status: TokenStatus.completed,
+      charge: updatedCharge,
+    );
+
+    state = state.copyWith(
+      isLoading: false,
+      clearServing: true,
+      waiting: _reposition(state.waiting),
+    );
+
+    // completed token is removed from active state; in real app it goes to history
+    debugPrint('Completed token: ${completed.displayToken}');
+  }
+
   Future<void> skipCurrent() async {
     final current = state.serving;
     if (current == null) return;
@@ -152,6 +187,10 @@ class QueueStateNotifier extends Notifier<QueueState> {
     // Mock — swap with: POST /api/v1/token/join
     final existing = state.waiting;
     final tokenNum = 103 + existing.length;
+    final selectedService = serviceId != null
+        ? state.queue?.services.where((s) => s.id == serviceId).firstOrNull
+        : null;
+
     final newToken = TokenModel(
       id: 'tok_${DateTime.now().millisecondsSinceEpoch}',
       queueId: state.queue?.id ?? '',
@@ -168,6 +207,14 @@ class QueueStateNotifier extends Notifier<QueueState> {
               name: serviceName,
               code: null,
               estimatedDuration: null,
+            )
+          : null,
+      charge: selectedService != null
+          ? ChargeInfo(
+              defaultAmount: selectedService.charge.amount,
+              isEditable: selectedService.charge.isEditable,
+              minAmount: selectedService.charge.minAmount,
+              maxAmount: selectedService.charge.maxAmount,
             )
           : null,
       joinedAt: DateTime.now(),
@@ -195,6 +242,10 @@ class QueueStateNotifier extends Notifier<QueueState> {
         existing.where((t) => t.isEmergency).length + 1;
     final displayToken = 'E-${emergencyCount.toString().padLeft(3, '0')}';
 
+    final selectedService = serviceId != null
+        ? state.queue?.services.where((s) => s.id == serviceId).firstOrNull
+        : null;
+
     final newToken = TokenModel(
       id: 'tok_emg_${DateTime.now().millisecondsSinceEpoch}',
       queueId: state.queue?.id ?? '',
@@ -212,6 +263,14 @@ class QueueStateNotifier extends Notifier<QueueState> {
               name: serviceName,
               code: null,
               estimatedDuration: null,
+            )
+          : null,
+      charge: selectedService != null
+          ? ChargeInfo(
+              defaultAmount: selectedService.charge.amount,
+              isEditable: selectedService.charge.isEditable,
+              minAmount: selectedService.charge.minAmount,
+              maxAmount: selectedService.charge.maxAmount,
             )
           : null,
       joinedAt: DateTime.now(),
@@ -259,6 +318,12 @@ class QueueStateNotifier extends Notifier<QueueState> {
         code: 'GEN',
         estimatedDuration: 15,
       ),
+      charge: const ChargeInfo(
+        defaultAmount: 30000,
+        isEditable: true,
+        minAmount: 15000,
+        maxAmount: 60000,
+      ),
       joinedAt: DateTime.now().subtract(const Duration(minutes: 12)),
     );
   }
@@ -276,6 +341,7 @@ class QueueStateNotifier extends Notifier<QueueState> {
         position: 1,
         estimatedWaitMinutes: 8,
         service: const TokenServiceSnapshot(name: 'General Consultation', code: 'GEN'),
+        charge: const ChargeInfo(defaultAmount: 30000, isEditable: true, minAmount: 15000, maxAmount: 60000),
         joinedAt: now.subtract(const Duration(minutes: 30)),
       ),
       TokenModel(
@@ -288,6 +354,7 @@ class QueueStateNotifier extends Notifier<QueueState> {
         position: 2,
         estimatedWaitMinutes: 16,
         service: const TokenServiceSnapshot(name: 'Follow-up', code: 'FUP'),
+        charge: const ChargeInfo(defaultAmount: 15000, isEditable: false),
         joinedAt: now.subtract(const Duration(minutes: 25)),
       ),
       TokenModel(
@@ -311,6 +378,7 @@ class QueueStateNotifier extends Notifier<QueueState> {
         position: 4,
         estimatedWaitMinutes: 32,
         service: const TokenServiceSnapshot(name: 'Blood Test', code: 'BT'),
+        charge: const ChargeInfo(defaultAmount: 50000, isEditable: true, minAmount: 20000),
         joinedAt: now.subtract(const Duration(minutes: 15)),
       ),
     ];

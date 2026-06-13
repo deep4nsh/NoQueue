@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/token.dart';
 import '../providers/queue_state_provider.dart';
 import '../providers/registration_provider.dart';
+import '../widgets/charge_edit_sheet.dart';
 import '../widgets/emergency_token_sheet.dart';
+import '../widgets/token_detail_sheet.dart';
 import '../widgets/walk_in_sheet.dart';
 
 class ReceptionistScreen extends ConsumerStatefulWidget {
@@ -47,6 +49,30 @@ class _ReceptionistScreenState extends ConsumerState<ReceptionistScreen> {
     );
   }
 
+  void _showChargeSheet(TokenModel token) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => ChargeEditSheet(token: token),
+    );
+  }
+
+  void _showTokenDetail(TokenModel token) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => TokenDetailSheet(token: token),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(queueStateProvider);
@@ -79,10 +105,20 @@ class _ReceptionistScreenState extends ConsumerState<ReceptionistScreen> {
           ? const Center(child: CircularProgressIndicator())
           : Column(
               children: [
-                _ServingCard(colorScheme: colorScheme),
+                _ServingCard(
+                  colorScheme: colorScheme,
+                  onMarkDone: state.serving != null
+                      ? () => _showChargeSheet(state.serving!)
+                      : null,
+                ),
                 _ActionRow(colorScheme: colorScheme),
                 _QueueCountBar(colorScheme: colorScheme),
-                Expanded(child: _WaitingList(colorScheme: colorScheme)),
+                Expanded(
+                  child: _WaitingList(
+                    colorScheme: colorScheme,
+                    onTokenTap: _showTokenDetail,
+                  ),
+                ),
               ],
             ),
       bottomNavigationBar: _BottomActions(
@@ -96,7 +132,8 @@ class _ReceptionistScreenState extends ConsumerState<ReceptionistScreen> {
 
 class _ServingCard extends ConsumerWidget {
   final ColorScheme colorScheme;
-  const _ServingCard({required this.colorScheme});
+  final VoidCallback? onMarkDone;
+  const _ServingCard({required this.colorScheme, this.onMarkDone});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -190,6 +227,7 @@ class _ServingCard extends ConsumerWidget {
                   ),
                 ),
                 Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Container(
                       padding: const EdgeInsets.symmetric(
@@ -204,6 +242,26 @@ class _ServingCard extends ConsumerWidget {
                           color: colorScheme.onPrimary,
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    GestureDetector(
+                      onTap: onMarkDone,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: colorScheme.onPrimary,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          'Mark Done',
+                          style: TextStyle(
+                            color: colorScheme.primary,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                       ),
                     ),
@@ -325,7 +383,8 @@ class _QueueCountBar extends ConsumerWidget {
 
 class _WaitingList extends ConsumerWidget {
   final ColorScheme colorScheme;
-  const _WaitingList({required this.colorScheme});
+  final void Function(TokenModel) onTokenTap;
+  const _WaitingList({required this.colorScheme, required this.onTokenTap});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -348,15 +407,14 @@ class _WaitingList extends ConsumerWidget {
       );
     }
 
-    bool shownDivider = false;
-
     return ListView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       itemCount: tokens.length,
       itemBuilder: (context, index) {
         final token = tokens[index];
-        final isFirstNormal = !shownDivider && !token.isEmergency;
-        if (isFirstNormal) shownDivider = true;
+        // First normal token after at least one emergency token
+        final isFirstNormal = !token.isEmergency &&
+            (index == 0 || tokens[index - 1].isEmergency);
 
         return Column(
           children: [
@@ -380,7 +438,7 @@ class _WaitingList extends ConsumerWidget {
                   ],
                 ),
               ),
-            _TokenRow(token: token, colorScheme: colorScheme),
+            _TokenRow(token: token, colorScheme: colorScheme, onTap: () => onTokenTap(token)),
           ],
         );
       },
@@ -391,8 +449,9 @@ class _WaitingList extends ConsumerWidget {
 class _TokenRow extends StatelessWidget {
   final TokenModel token;
   final ColorScheme colorScheme;
+  final VoidCallback onTap;
 
-  const _TokenRow({required this.token, required this.colorScheme});
+  const _TokenRow({required this.token, required this.colorScheme, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -411,82 +470,128 @@ class _TokenRow extends StatelessWidget {
       color: token.isEmergency
           ? colorScheme.errorContainer.withAlpha(40)
           : null,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        child: Row(
-          children: [
-            SizedBox(
-              width: 32,
-              child: Text(
-                '#${token.position}',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: colorScheme.outline,
-                  fontWeight: FontWeight.w500,
+      clipBehavior: Clip.hardEdge,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 32,
+                child: Text(
+                  '#${token.position}',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: colorScheme.outline,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ),
-            ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(
-                color: token.isEmergency
-                    ? colorScheme.error
-                    : colorScheme.primaryContainer,
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Text(
-                token.displayToken,
-                style: TextStyle(
-                  fontWeight: FontWeight.w800,
-                  fontSize: 13,
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
                   color: token.isEmergency
-                      ? colorScheme.onError
-                      : colorScheme.onPrimaryContainer,
+                      ? colorScheme.error
+                      : colorScheme.primaryContainer,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  token.displayToken,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 13,
+                    color: token.isEmergency
+                        ? colorScheme.onError
+                        : colorScheme.onPrimaryContainer,
+                  ),
                 ),
               ),
-            ),
-            if (token.isEmergency) ...[
-              const SizedBox(width: 6),
-              Icon(Icons.flash_on, size: 14, color: colorScheme.error),
-            ],
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              if (token.isEmergency) ...[
+                const SizedBox(width: 6),
+                Icon(Icons.flash_on, size: 14, color: colorScheme.error),
+              ],
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      token.customerName,
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w600, fontSize: 14),
+                    ),
+                    if (token.service?.name != null)
+                      Text(
+                        token.service!.name!,
+                        style: TextStyle(
+                            fontSize: 12, color: colorScheme.outline),
+                      ),
+                    if (token.isEmergency && token.priorityReason != null)
+                      Text(
+                        token.priorityReason!,
+                        style: TextStyle(
+                            fontSize: 11,
+                            color: colorScheme.error.withAlpha(200),
+                            fontStyle: FontStyle.italic),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                  ],
+                ),
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    token.customerName,
-                    style: const TextStyle(
-                        fontWeight: FontWeight.w600, fontSize: 14),
+                    '~${token.estimatedWaitMinutes}m',
+                    style: TextStyle(
+                        fontSize: 12,
+                        color: colorScheme.outline,
+                        fontWeight: FontWeight.w500),
                   ),
-                  if (token.service?.name != null)
-                    Text(
-                      token.service!.name!,
-                      style: TextStyle(
-                          fontSize: 12, color: colorScheme.outline),
-                    ),
-                  if (token.isEmergency && token.priorityReason != null)
-                    Text(
-                      token.priorityReason!,
-                      style: TextStyle(
-                          fontSize: 11,
-                          color: colorScheme.error.withAlpha(200),
-                          fontStyle: FontStyle.italic),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                  if (token.hasCharge) ...[
+                    const SizedBox(height: 3),
+                    _ChargeBadge(token: token, colorScheme: colorScheme),
+                  ],
                 ],
               ),
-            ),
-            Text(
-              '~${token.estimatedWaitMinutes}m',
-              style: TextStyle(
-                  fontSize: 12,
-                  color: colorScheme.outline,
-                  fontWeight: FontWeight.w500),
-            ),
-          ],
+            ],
+          ),
         ),
+      ),
+    );
+  }
+}
+
+class _ChargeBadge extends StatelessWidget {
+  final TokenModel token;
+  final ColorScheme colorScheme;
+
+  const _ChargeBadge({required this.token, required this.colorScheme});
+
+  @override
+  Widget build(BuildContext context) {
+    final charge = token.charge!;
+    final color = switch (charge.status) {
+      ChargeStatus.confirmed => Colors.green,
+      ChargeStatus.waived => colorScheme.outline,
+      ChargeStatus.pending => colorScheme.secondary,
+    };
+    final label = charge.status == ChargeStatus.waived
+        ? 'Waived'
+        : '₹${charge.effectiveAmountInRupees.toStringAsFixed(0)}';
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withAlpha(25),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: color.withAlpha(70)),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w600),
       ),
     );
   }
