@@ -13,12 +13,14 @@ const queue_schema_1 = require("./queue.schema");
 const token_schema_1 = require("../token/token.schema");
 const queue_service_1 = require("./queue.service");
 const queue_controller_1 = require("./queue.controller");
+const gateways_module_1 = require("../../gateways/gateways.module");
 let QueueModule = class QueueModule {
 };
 exports.QueueModule = QueueModule;
 exports.QueueModule = QueueModule = __decorate([
     (0, common_1.Module)({
         imports: [
+            gateways_module_1.GatewaysModule,
             mongoose_1.MongooseModule.forFeature([
                 { name: queue_schema_1.QueueEntity.name, schema: queue_schema_1.QueueSchema },
                 { name: token_schema_1.TokenEntity.name, schema: token_schema_1.TokenSchema },

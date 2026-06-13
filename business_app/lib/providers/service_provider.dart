@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/service.dart';
+import '../services/api_service.dart';
 
 class ServiceState {
   final List<ServiceModel> services;
@@ -38,52 +39,50 @@ class ServiceState {
 }
 
 class ServiceNotifier extends Notifier<ServiceState> {
+  final _api = ApiService();
+
   @override
   ServiceState build() => const ServiceState();
 
   Future<void> loadServices(String businessId) async {
     state = state.copyWith(isLoading: true, error: null);
-    await Future.delayed(const Duration(milliseconds: 800));
-
-    // Mock data — swap with: GET /api/v1/service?businessId=...
-    state = state.copyWith(
-      isLoading: false,
-      services: _mockServices(businessId),
-    );
+    try {
+      final data = await _api.getServices(businessId);
+      state = state.copyWith(
+        isLoading: false,
+        services: data.map((s) => _fromJson(s as Map<String, dynamic>)).toList(),
+      );
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+    }
   }
 
   Future<void> addService(ServiceModel service) async {
     state = state.copyWith(isLoading: true, error: null);
-    await Future.delayed(const Duration(milliseconds: 600));
-
-    // Mock — swap with: POST /api/v1/service
-    final newService = ServiceModel(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      businessId: service.businessId,
-      branchId: service.branchId,
-      name: service.name,
-      code: service.code,
-      description: service.description,
-      category: service.category,
-      charge: service.charge,
-      estimatedDuration: service.estimatedDuration,
-      isActive: service.isActive,
-      sortOrder: state.services.length,
-    );
-
-    state = state.copyWith(
-      isLoading: false,
-      services: [...state.services, newService],
-    );
+    try {
+      final data = await _api.createService(_toJson(service));
+      final created = _fromJson(data);
+      state = state.copyWith(
+        isLoading: false,
+        services: [...state.services, created],
+      );
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+    }
   }
 
   Future<void> updateService(ServiceModel updated) async {
     state = state.copyWith(isLoading: true, error: null);
-    await Future.delayed(const Duration(milliseconds: 600));
-
-    // Mock — swap with: PATCH /api/v1/service/:id
-    final updatedList = state.services.map((s) => s.id == updated.id ? updated : s).toList();
-    state = state.copyWith(isLoading: false, services: updatedList);
+    try {
+      final data = await _api.updateService(updated.id, _toJson(updated));
+      final serverUpdated = _fromJson(data);
+      final updatedList = state.services
+          .map((s) => s.id == updated.id ? serverUpdated : s)
+          .toList();
+      state = state.copyWith(isLoading: false, services: updatedList);
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+    }
   }
 
   Future<void> toggleActive(String serviceId) async {
@@ -93,73 +92,63 @@ class ServiceNotifier extends Notifier<ServiceState> {
 
   Future<void> removeService(String serviceId) async {
     state = state.copyWith(isLoading: true, error: null);
-    await Future.delayed(const Duration(milliseconds: 400));
-
-    // Mock — swap with: DELETE /api/v1/service/:id
-    final updated = state.services.where((s) => s.id != serviceId).toList();
-    state = state.copyWith(isLoading: false, services: updated);
+    try {
+      await _api.deleteService(serviceId);
+      final updated = state.services.where((s) => s.id != serviceId).toList();
+      state = state.copyWith(isLoading: false, services: updated);
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+    }
   }
 
-  List<ServiceModel> _mockServices(String businessId) {
-    return [
-      ServiceModel(
-        id: 'svc_001',
-        businessId: businessId,
-        name: 'General Consultation',
-        code: 'GEN',
-        description: 'Standard OPD consultation with doctor',
-        category: ServiceCategory.consultation,
-        charge: const ServiceCharge(
-          amount: 30000,
-          isEditable: true,
-          minAmount: 15000,
-          maxAmount: 60000,
-        ),
-        estimatedDuration: 15,
-        isActive: true,
-        sortOrder: 0,
+  ServiceModel _fromJson(Map<String, dynamic> j) {
+    final charge = j['charge'] as Map<String, dynamic>? ?? {};
+    return ServiceModel(
+      id: (j['_id'] ?? j['id']) as String,
+      businessId: j['businessId'] as String? ?? '',
+      branchId: j['branchId'] as String?,
+      name: j['name'] as String? ?? '',
+      code: j['code'] as String? ?? '',
+      description: j['description'] as String?,
+      category: _parseCategory(j['category'] as String? ?? ''),
+      charge: ServiceCharge(
+        amount: charge['amount'] as int? ?? 0,
+        isEditable: charge['isEditable'] as bool? ?? true,
+        minAmount: charge['minAmount'] as int?,
+        maxAmount: charge['maxAmount'] as int?,
       ),
-      ServiceModel(
-        id: 'svc_002',
-        businessId: businessId,
-        name: 'Follow-up',
-        code: 'FUP',
-        description: 'Follow-up visit for existing patients',
-        category: ServiceCategory.consultation,
-        charge: const ServiceCharge(amount: 15000, isEditable: false),
-        estimatedDuration: 10,
-        isActive: true,
-        sortOrder: 1,
-      ),
-      ServiceModel(
-        id: 'svc_003',
-        businessId: businessId,
-        name: 'Blood Test',
-        code: 'BT',
-        description: 'Complete blood count and routine blood work',
-        category: ServiceCategory.diagnostics,
-        charge: const ServiceCharge(
-          amount: 50000,
-          isEditable: true,
-          minAmount: 20000,
-        ),
-        estimatedDuration: 20,
-        isActive: true,
-        sortOrder: 2,
-      ),
-      ServiceModel(
-        id: 'svc_004',
-        businessId: businessId,
-        name: 'ECG',
-        code: 'ECG',
-        description: 'Electrocardiogram',
-        category: ServiceCategory.diagnostics,
-        charge: const ServiceCharge(amount: 50000, isEditable: false),
-        estimatedDuration: 20,
-        isActive: false,
-        sortOrder: 3,
-      ),
-    ];
+      estimatedDuration: j['estimatedDuration'] as int? ?? 0,
+      isActive: j['isActive'] as bool? ?? true,
+      sortOrder: j['sortOrder'] as int? ?? 0,
+    );
+  }
+
+  Map<String, dynamic> _toJson(ServiceModel s) => {
+        'businessId': s.businessId,
+        if (s.branchId != null) 'branchId': s.branchId,
+        'name': s.name,
+        'code': s.code,
+        if (s.description != null) 'description': s.description,
+        'category': s.category.name.toUpperCase(),
+        'charge': {
+          'amount': s.charge.amount,
+          'isEditable': s.charge.isEditable,
+          if (s.charge.minAmount != null) 'minAmount': s.charge.minAmount,
+          if (s.charge.maxAmount != null) 'maxAmount': s.charge.maxAmount,
+        },
+        'estimatedDuration': s.estimatedDuration,
+        'isActive': s.isActive,
+        'sortOrder': s.sortOrder,
+      };
+
+  ServiceCategory _parseCategory(String s) {
+    switch (s.toUpperCase()) {
+      case 'DIAGNOSTICS': return ServiceCategory.diagnostics;
+      case 'PROCEDURE': return ServiceCategory.procedure;
+      case 'THERAPY': return ServiceCategory.therapy;
+      case 'GROOMING': return ServiceCategory.grooming;
+      default: return ServiceCategory.consultation;
+    }
   }
 }
 

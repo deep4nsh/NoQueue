@@ -20,8 +20,8 @@ class _ReceptionistScreenState extends ConsumerState<ReceptionistScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final branchSlug = ref.read(registrationProvider).branchSlug;
-      ref.read(queueStateProvider.notifier).loadQueue(branchSlug);
+      final branchId = ref.read(registrationProvider).branchId;
+      ref.read(queueStateProvider.notifier).loadQueue(branchId);
     });
   }
 

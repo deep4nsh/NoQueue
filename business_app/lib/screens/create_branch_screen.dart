@@ -73,6 +73,7 @@ class _CreateBranchScreenState extends ConsumerState<CreateBranchScreen> {
                   onPressed: () {
                     if (_formKey.currentState!.validate()) {
                       ref.read(registrationProvider.notifier).setBranch(
+                            id: '', // TODO: set real branchId after API call
                             name: _nameController.text.trim(),
                             slug: _slugController.text.trim(),
                           );

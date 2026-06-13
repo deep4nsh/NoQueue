@@ -19,11 +19,13 @@ const mongoose_2 = require("mongoose");
 const token_schema_1 = require("./token.schema");
 const queue_schema_1 = require("../queue/queue.schema");
 const service_schema_1 = require("../service/service.schema");
+const queue_gateway_1 = require("../../gateways/queue.gateway");
 let TokenService = class TokenService {
-    constructor(tokenModel, queueModel, serviceModel) {
+    constructor(tokenModel, queueModel, serviceModel, gateway) {
         this.tokenModel = tokenModel;
         this.queueModel = queueModel;
         this.serviceModel = serviceModel;
+        this.gateway = gateway;
     }
     async join(dto) {
         const queue = await this._getOpenQueue(dto.queueId);
@@ -33,7 +35,7 @@ let TokenService = class TokenService {
         queue.lastTokenIssued += 1;
         await queue.save();
         const displayToken = `${queue.prefix}-${queue.lastTokenIssued}`;
-        const waitingTokens = await this._getWaitingTokens(queue._id);
+        const waitingTokens = await this._getActiveTokens(queue._id);
         const position = waitingTokens.length + 1;
         const estimatedWait = position * queue.averageServiceTime;
         const token = await this.tokenModel.create({
@@ -67,6 +69,8 @@ let TokenService = class TokenService {
             notes: dto.notes ?? '',
             joinedAt: new Date(),
         });
+        this.gateway.emitTokenJoined(dto.queueId, token.toObject());
+        this.gateway.emitQueueRefresh(dto.queueId);
         return token;
     }
     async createEmergency(dto) {
@@ -113,6 +117,8 @@ let TokenService = class TokenService {
             joinedAt: new Date(),
         });
         await this._recalculatePositions(queue._id, queue.averageServiceTime);
+        this.gateway.emitTokenJoined(dto.queueId, token.toObject());
+        this.gateway.emitQueueRefresh(dto.queueId);
         return token;
     }
     async findById(id) {
@@ -129,6 +135,23 @@ let TokenService = class TokenService {
         const tokens = await this.tokenModel.find(filter).exec();
         return this._sortByPriorityThenTime(tokens);
     }
+    async call(id) {
+        const token = await this.findById(id);
+        if (token.status !== token_schema_1.TokenStatus.WAITING) {
+            throw new common_1.BadRequestException('Only WAITING tokens can be called');
+        }
+        token.status = token_schema_1.TokenStatus.CALLED;
+        token.calledAt = new Date();
+        await token.save();
+        const queueId = token.queueId.toString();
+        this.gateway.emitTokenCalled(queueId, {
+            tokenId: id,
+            displayToken: token.displayToken,
+            customerName: token.customer.name,
+        });
+        this.gateway.emitQueueRefresh(queueId);
+        return token;
+    }
     async complete(id) {
         const token = await this.findById(id);
         const queue = await this.queueModel.findById(token.queueId).exec();
@@ -142,6 +165,25 @@ let TokenService = class TokenService {
         }
         await token.save();
         await this._recalculatePositions(token.queueId, avgTime);
+        const queueId = token.queueId.toString();
+        this.gateway.emitTokenCompleted(queueId, id);
+        this.gateway.emitQueueRefresh(queueId);
+        return token;
+    }
+    async skip(id) {
+        const token = await this.findById(id);
+        if (![token_schema_1.TokenStatus.WAITING, token_schema_1.TokenStatus.CALLED].includes(token.status)) {
+            throw new common_1.BadRequestException('Only WAITING or CALLED tokens can be skipped');
+        }
+        const queue = await this.queueModel.findById(token.queueId).exec();
+        const avgTime = queue?.averageServiceTime ?? 10;
+        token.status = token_schema_1.TokenStatus.SKIPPED;
+        token.skippedAt = new Date();
+        await token.save();
+        await this._recalculatePositions(token.queueId, avgTime);
+        const queueId = token.queueId.toString();
+        this.gateway.emitTokenSkipped(queueId, id);
+        this.gateway.emitQueueRefresh(queueId);
         return token;
     }
     async cancel(id) {
@@ -151,7 +193,24 @@ let TokenService = class TokenService {
         token.status = token_schema_1.TokenStatus.CANCELLED;
         await token.save();
         await this._recalculatePositions(token.queueId, avgTime);
+        const queueId = token.queueId.toString();
+        this.gateway.emitTokenCancelled(queueId, id);
+        this.gateway.emitQueueRefresh(queueId);
         return token;
+    }
+    async recall(id) {
+        const token = await this.findById(id);
+        if (token.status !== token_schema_1.TokenStatus.CALLED) {
+            throw new common_1.BadRequestException('Only CALLED tokens can be recalled');
+        }
+        token.recalledCount = (token.recalledCount ?? 0) + 1;
+        await token.save();
+        this.gateway.emitTokenCalled(token.queueId.toString(), {
+            tokenId: id,
+            displayToken: token.displayToken,
+            customerName: token.customer.name,
+        });
+        return { success: true };
     }
     async updateCharge(id, dto) {
         const token = await this.findById(id);
@@ -187,13 +246,13 @@ let TokenService = class TokenService {
         }
         return queue;
     }
-    async _getWaitingTokens(queueId) {
+    async _getActiveTokens(queueId) {
         return this.tokenModel
             .find({ queueId, status: { $in: [token_schema_1.TokenStatus.WAITING, token_schema_1.TokenStatus.CALLED] } })
             .exec();
     }
     async _recalculatePositions(queueId, avgServiceTime) {
-        const tokens = await this._getWaitingTokens(queueId);
+        const tokens = await this._getActiveTokens(queueId);
         const sorted = this._sortByPriorityThenTime(tokens);
         const ops = sorted.map((token, index) => this.tokenModel.updateOne({ _id: token._id }, {
             $set: {
@@ -228,6 +287,7 @@ exports.TokenService = TokenService = __decorate([
     __param(2, (0, mongoose_1.InjectModel)(service_schema_1.ServiceEntity.name)),
     __metadata("design:paramtypes", [mongoose_2.Model,
         mongoose_2.Model,
-        mongoose_2.Model])
+        mongoose_2.Model,
+        queue_gateway_1.QueueGateway])
 ], TokenService);
 //# sourceMappingURL=token.service.js.map

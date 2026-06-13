@@ -13,6 +13,7 @@ const business_module_1 = require("./modules/business/business.module");
 const queue_module_1 = require("./modules/queue/queue.module");
 const service_module_1 = require("./modules/service/service.module");
 const token_module_1 = require("./modules/token/token.module");
+const gateways_module_1 = require("./gateways/gateways.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -20,6 +21,7 @@ exports.AppModule = AppModule = __decorate([
     (0, common_1.Module)({
         imports: [
             mongoose_1.MongooseModule.forRoot(process.env.MONGODB_URI ?? 'mongodb://localhost:27017/noqueue'),
+            gateways_module_1.GatewaysModule,
             business_module_1.BusinessModule,
             queue_module_1.QueueModule,
             service_module_1.ServiceModule,

@@ -5,9 +5,11 @@ import { QueueEntity, QueueSchema } from '../queue/queue.schema';
 import { ServiceEntity, ServiceSchema } from '../service/service.schema';
 import { TokenService } from './token.service';
 import { TokenController } from './token.controller';
+import { GatewaysModule } from '../../gateways/gateways.module';
 
 @Module({
   imports: [
+    GatewaysModule,
     MongooseModule.forFeature([
       { name: TokenEntity.name, schema: TokenSchema },
       { name: QueueEntity.name, schema: QueueSchema },

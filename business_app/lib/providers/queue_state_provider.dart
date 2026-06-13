@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/token.dart';
 import '../models/service.dart';
+import '../services/api_service.dart';
+import '../services/socket_service.dart';
 
 class QueueState {
   final QueueSnapshot? queue;
@@ -35,66 +37,73 @@ class QueueState {
     );
   }
 
-  int get emergencyCount =>
-      waiting.where((t) => t.isEmergency).length;
-
-  int get normalCount =>
-      waiting.where((t) => !t.isEmergency).length;
+  int get emergencyCount => waiting.where((t) => t.isEmergency).length;
+  int get normalCount => waiting.where((t) => !t.isEmergency).length;
 }
 
 class QueueStateNotifier extends Notifier<QueueState> {
+  final _api = ApiService();
+  final _socket = SocketService();
+
   @override
   QueueState build() => const QueueState();
 
-  Future<void> loadQueue(String queueId) async {
+  // Called with branchId from registration provider
+  Future<void> loadQueue(String branchId) async {
+    if (branchId.isEmpty) return;
     state = state.copyWith(isLoading: true, error: null);
-    await Future.delayed(const Duration(milliseconds: 700));
+    try {
+      final queueData = await _api.getQueueByBranchId(branchId);
+      final queueId = queueData['_id'] as String;
 
-    // Mock — swap with: GET /api/v1/token/queue/:queueId?status=WAITING,CALLED
-    final mockQueue = QueueSnapshot(
-      id: queueId,
-      name: 'OPD Queue',
-      prefix: 'A',
-      waitingCount: 14,
-      averageServiceTime: 8,
-      allowEmergencyTokens: true,
-      services: [
-        ServiceModel(
-          id: 'svc_001',
-          businessId: 'biz_mock',
-          name: 'General Consultation',
-          code: 'GEN',
-          category: ServiceCategory.consultation,
-          charge: const ServiceCharge(amount: 30000),
-          estimatedDuration: 15,
-        ),
-        ServiceModel(
-          id: 'svc_002',
-          businessId: 'biz_mock',
-          name: 'Follow-up',
-          code: 'FUP',
-          category: ServiceCategory.consultation,
-          charge: const ServiceCharge(amount: 15000),
-          estimatedDuration: 10,
-        ),
-        ServiceModel(
-          id: 'svc_003',
-          businessId: 'biz_mock',
-          name: 'Blood Test',
-          code: 'BT',
-          category: ServiceCategory.diagnostics,
-          charge: const ServiceCharge(amount: 50000),
-          estimatedDuration: 20,
-        ),
-      ],
-    );
+      final tokensData = await _api.getQueueTokens(
+        queueId,
+        status: ['WAITING', 'CALLED'],
+      );
 
-    state = state.copyWith(
-      isLoading: false,
-      queue: mockQueue,
-      serving: _mockServing(),
-      waiting: _mockWaiting(),
-    );
+      final services = _parseServices(queueData['services'] as List<dynamic>? ?? []);
+      final snapshot = QueueSnapshot(
+        id: queueId,
+        name: queueData['name'] as String? ?? '',
+        prefix: queueData['prefix'] as String? ?? 'A',
+        waitingCount: queueData['waitingCount'] as int? ?? 0,
+        averageServiceTime: queueData['averageServiceTime'] as int? ?? 10,
+        allowEmergencyTokens: (queueData['settings'] as Map<String, dynamic>?)?['allowEmergencyTokens'] as bool? ?? true,
+        services: services,
+      );
+
+      final allTokens = tokensData.map((t) => _tokenFromJson(t as Map<String, dynamic>)).toList();
+      final serving = allTokens.where((t) => t.status == TokenStatus.called).firstOrNull;
+      final waiting = allTokens.where((t) => t.status == TokenStatus.waiting).toList();
+
+      state = state.copyWith(
+        isLoading: false,
+        queue: snapshot,
+        serving: serving,
+        waiting: waiting,
+      );
+
+      _subscribeSocket(queueId);
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+    }
+  }
+
+  Future<void> refreshQueue() async {
+    final queueId = state.queue?.id;
+    if (queueId == null) return;
+    try {
+      final tokensData = await _api.getQueueTokens(
+        queueId,
+        status: ['WAITING', 'CALLED'],
+      );
+      final allTokens = tokensData.map((t) => _tokenFromJson(t as Map<String, dynamic>)).toList();
+      final serving = allTokens.where((t) => t.status == TokenStatus.called).firstOrNull;
+      final waiting = allTokens.where((t) => t.status == TokenStatus.waiting).toList();
+      state = state.copyWith(serving: serving, waiting: waiting);
+    } catch (e) {
+      debugPrint('refreshQueue error: $e');
+    }
   }
 
   Future<void> callNext() async {
@@ -102,17 +111,18 @@ class QueueStateNotifier extends Notifier<QueueState> {
     if (nextToken == null) return;
 
     state = state.copyWith(isLoading: true);
-    await Future.delayed(const Duration(milliseconds: 400));
-
-    // Mock — swap with: PATCH /api/v1/token/:id/complete (current) then front-end re-fetches
-    final updatedWaiting = state.waiting.skip(1).toList();
-    final calledToken = nextToken.copyWith(status: TokenStatus.called);
-
-    state = state.copyWith(
-      isLoading: false,
-      serving: calledToken,
-      waiting: _reposition(updatedWaiting),
-    );
+    try {
+      final data = await _api.callToken(nextToken.id);
+      final calledToken = _tokenFromJson(data);
+      final updatedWaiting = state.waiting.where((t) => t.id != nextToken.id).toList();
+      state = state.copyWith(
+        isLoading: false,
+        serving: calledToken,
+        waiting: updatedWaiting,
+      );
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+    }
   }
 
   Future<void> completeToken({int? finalAmount, ChargeStatus? chargeStatus}) async {
@@ -120,33 +130,18 @@ class QueueStateNotifier extends Notifier<QueueState> {
     if (current == null) return;
 
     state = state.copyWith(isLoading: true);
-    await Future.delayed(const Duration(milliseconds: 400));
-
-    // Mock — swap with:
-    //   PATCH /api/v1/token/:id/charge  (if charge exists)
-    //   PATCH /api/v1/token/:id/complete
-    final isWaived = chargeStatus == ChargeStatus.waived;
-    final updatedCharge = current.hasCharge
-        ? current.charge!.copyWith(
-            finalAmount: isWaived ? null : finalAmount,
-            status: chargeStatus ?? ChargeStatus.confirmed,
-            clearFinalAmount: isWaived,
-          )
-        : null;
-
-    final completed = current.copyWith(
-      status: TokenStatus.completed,
-      charge: updatedCharge,
-    );
-
-    state = state.copyWith(
-      isLoading: false,
-      clearServing: true,
-      waiting: _reposition(state.waiting),
-    );
-
-    // completed token is removed from active state; in real app it goes to history
-    debugPrint('Completed token: ${completed.displayToken}');
+    try {
+      if (current.hasCharge && chargeStatus != null) {
+        await _api.updateCharge(current.id, {
+          'finalAmount': chargeStatus == ChargeStatus.waived ? null : finalAmount,
+          'status': chargeStatus == ChargeStatus.waived ? 'WAIVED' : 'CONFIRMED',
+        });
+      }
+      await _api.completeToken(current.id);
+      state = state.copyWith(isLoading: false, clearServing: true);
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+    }
   }
 
   Future<void> skipCurrent() async {
@@ -154,14 +149,12 @@ class QueueStateNotifier extends Notifier<QueueState> {
     if (current == null) return;
 
     state = state.copyWith(isLoading: true);
-    await Future.delayed(const Duration(milliseconds: 300));
-
-    // Mock — swap with: PATCH /api/v1/queue/:id/skip
-    state = state.copyWith(
-      isLoading: false,
-      clearServing: true,
-      waiting: _reposition(state.waiting),
-    );
+    try {
+      await _api.skipToken(current.id);
+      state = state.copyWith(isLoading: false, clearServing: true);
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+    }
   }
 
   Future<void> recallCurrent() async {
@@ -169,10 +162,12 @@ class QueueStateNotifier extends Notifier<QueueState> {
     if (current == null) return;
 
     state = state.copyWith(isLoading: true);
-    await Future.delayed(const Duration(milliseconds: 300));
-
-    // Recall just re-emits the called event — no state change needed
-    state = state.copyWith(isLoading: false);
+    try {
+      await _api.recallToken(current.id);
+      state = state.copyWith(isLoading: false);
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+    }
   }
 
   Future<void> addWalkIn({
@@ -181,49 +176,21 @@ class QueueStateNotifier extends Notifier<QueueState> {
     String? serviceId,
     String? serviceName,
   }) async {
+    final queueId = state.queue?.id;
+    if (queueId == null) return;
+
     state = state.copyWith(isLoading: true);
-    await Future.delayed(const Duration(milliseconds: 500));
-
-    // Mock — swap with: POST /api/v1/token/join
-    final existing = state.waiting;
-    final tokenNum = 103 + existing.length;
-    final selectedService = serviceId != null
-        ? state.queue?.services.where((s) => s.id == serviceId).firstOrNull
-        : null;
-
-    final newToken = TokenModel(
-      id: 'tok_${DateTime.now().millisecondsSinceEpoch}',
-      queueId: state.queue?.id ?? '',
-      displayToken: '${state.queue?.prefix ?? "A"}-$tokenNum',
-      customerName: name,
-      customerPhone: phone,
-      status: TokenStatus.waiting,
-      priority: TokenPriority.normal,
-      position: existing.length + 1,
-      estimatedWaitMinutes: (existing.length + 1) * (state.queue?.averageServiceTime ?? 8),
-      service: serviceId != null
-          ? TokenServiceSnapshot(
-              serviceId: serviceId,
-              name: serviceName,
-              code: null,
-              estimatedDuration: null,
-            )
-          : null,
-      charge: selectedService != null
-          ? ChargeInfo(
-              defaultAmount: selectedService.charge.amount,
-              isEditable: selectedService.charge.isEditable,
-              minAmount: selectedService.charge.minAmount,
-              maxAmount: selectedService.charge.maxAmount,
-            )
-          : null,
-      joinedAt: DateTime.now(),
-    );
-
-    state = state.copyWith(
-      isLoading: false,
-      waiting: [...existing, newToken],
-    );
+    try {
+      await _api.joinQueue({
+        'queueId': queueId,
+        'customer': {'name': name, 'phone': phone},
+        if (serviceId != null) 'serviceId': serviceId,
+      });
+      // Socket will trigger queue:refresh → refreshQueue()
+      state = state.copyWith(isLoading: false);
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+    }
   }
 
   Future<void> addEmergencyToken({
@@ -233,155 +200,107 @@ class QueueStateNotifier extends Notifier<QueueState> {
     String? serviceName,
     required String reason,
   }) async {
+    final queueId = state.queue?.id;
+    if (queueId == null) return;
+
     state = state.copyWith(isLoading: true);
-    await Future.delayed(const Duration(milliseconds: 500));
+    try {
+      await _api.createEmergencyToken({
+        'queueId': queueId,
+        'customer': {'name': name, 'phone': phone},
+        if (serviceId != null) 'serviceId': serviceId,
+        'reason': reason,
+      });
+      state = state.copyWith(isLoading: false);
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+    }
+  }
 
-    // Mock — swap with: POST /api/v1/token/emergency
-    final existing = state.waiting;
-    final emergencyCount =
-        existing.where((t) => t.isEmergency).length + 1;
-    final displayToken = 'E-${emergencyCount.toString().padLeft(3, '0')}';
+  void _subscribeSocket(String queueId) {
+    _socket.joinQueue(queueId);
+    _socket.on('queue:refresh', (_) => refreshQueue());
+  }
 
-    final selectedService = serviceId != null
-        ? state.queue?.services.where((s) => s.id == serviceId).firstOrNull
-        : null;
+  // ─── Parsing helpers ─────────────────────────────────────────────────────────
 
-    final newToken = TokenModel(
-      id: 'tok_emg_${DateTime.now().millisecondsSinceEpoch}',
-      queueId: state.queue?.id ?? '',
-      displayToken: displayToken,
-      customerName: name,
-      customerPhone: phone,
-      status: TokenStatus.waiting,
-      priority: TokenPriority.emergency,
-      priorityReason: reason,
-      position: 1,
-      estimatedWaitMinutes: state.queue?.averageServiceTime ?? 8,
-      service: serviceId != null
+  TokenModel _tokenFromJson(Map<String, dynamic> j) {
+    final customer = j['customer'] as Map<String, dynamic>? ?? {};
+    final serviceSnap = j['service'] as Map<String, dynamic>?;
+    final chargeMap = j['charge'] as Map<String, dynamic>?;
+
+    return TokenModel(
+      id: (j['_id'] ?? j['id']) as String,
+      queueId: j['queueId'] as String? ?? '',
+      displayToken: j['displayToken'] as String? ?? '',
+      customerName: customer['name'] as String? ?? '',
+      customerPhone: customer['phone'] as String?,
+      status: _parseStatus(j['status'] as String? ?? ''),
+      priority: (j['priority'] as String?) == 'EMERGENCY'
+          ? TokenPriority.emergency
+          : TokenPriority.normal,
+      priorityReason: j['priorityReason'] as String?,
+      position: j['position'] as int? ?? 0,
+      estimatedWaitMinutes: j['estimatedWaitMinutes'] as int? ?? 0,
+      service: serviceSnap != null
           ? TokenServiceSnapshot(
-              serviceId: serviceId,
-              name: serviceName,
-              code: null,
-              estimatedDuration: null,
+              serviceId: serviceSnap['serviceId'] as String?,
+              name: serviceSnap['name'] as String?,
+              code: serviceSnap['code'] as String?,
+              estimatedDuration: serviceSnap['estimatedDuration'] as int?,
             )
           : null,
-      charge: selectedService != null
+      charge: chargeMap != null
           ? ChargeInfo(
-              defaultAmount: selectedService.charge.amount,
-              isEditable: selectedService.charge.isEditable,
-              minAmount: selectedService.charge.minAmount,
-              maxAmount: selectedService.charge.maxAmount,
+              defaultAmount: chargeMap['defaultAmount'] as int? ?? 0,
+              finalAmount: chargeMap['finalAmount'] as int?,
+              isEditable: true,
+              status: _parseChargeStatus(chargeMap['status'] as String? ?? ''),
             )
           : null,
-      joinedAt: DateTime.now(),
-    );
-
-    // Emergency token goes to front; recalculate positions
-    final withNew = [newToken, ...existing];
-    state = state.copyWith(
-      isLoading: false,
-      waiting: _reposition(withNew),
+      joinedAt: DateTime.tryParse(j['joinedAt'] as String? ?? '') ?? DateTime.now(),
     );
   }
 
-  List<TokenModel> _reposition(List<TokenModel> tokens) {
-    final sorted = [...tokens]..sort((a, b) {
-        if (a.priority != b.priority) {
-          return a.isEmergency ? -1 : 1;
-        }
-        return a.joinedAt.compareTo(b.joinedAt);
-      });
+  TokenStatus _parseStatus(String s) {
+    switch (s) {
+      case 'CALLED': return TokenStatus.called;
+      case 'IN_PROGRESS': return TokenStatus.inProgress;
+      case 'COMPLETED': return TokenStatus.completed;
+      case 'SKIPPED': return TokenStatus.skipped;
+      case 'CANCELLED': return TokenStatus.cancelled;
+      case 'NO_SHOW': return TokenStatus.noShow;
+      default: return TokenStatus.waiting;
+    }
+  }
 
-    final avgTime = state.queue?.averageServiceTime ?? 8;
-    return sorted.asMap().entries.map((e) {
-      return e.value.copyWith(
-        position: e.key + 1,
-        estimatedWaitMinutes: (e.key + 1) * avgTime,
+  ChargeStatus _parseChargeStatus(String s) {
+    switch (s) {
+      case 'CONFIRMED': return ChargeStatus.confirmed;
+      case 'WAIVED': return ChargeStatus.waived;
+      default: return ChargeStatus.pending;
+    }
+  }
+
+  List<ServiceModel> _parseServices(List<dynamic> list) {
+    return list.map((s) {
+      final m = s as Map<String, dynamic>;
+      final charge = m['charge'] as Map<String, dynamic>? ?? {};
+      return ServiceModel(
+        id: (m['_id'] ?? m['id']) as String,
+        businessId: m['businessId'] as String? ?? '',
+        name: m['name'] as String? ?? '',
+        code: m['code'] as String? ?? '',
+        category: ServiceCategory.consultation,
+        charge: ServiceCharge(
+          amount: charge['amount'] as int? ?? 0,
+          isEditable: charge['isEditable'] as bool? ?? true,
+          minAmount: charge['minAmount'] as int?,
+          maxAmount: charge['maxAmount'] as int?,
+        ),
+        estimatedDuration: m['estimatedDuration'] as int? ?? 0,
       );
     }).toList();
-  }
-
-  TokenModel _mockServing() {
-    return TokenModel(
-      id: 'tok_current',
-      queueId: 'q_001',
-      displayToken: 'A-102',
-      customerName: 'Priya Sharma',
-      customerPhone: '+919876543210',
-      status: TokenStatus.called,
-      priority: TokenPriority.normal,
-      position: 0,
-      estimatedWaitMinutes: 0,
-      service: const TokenServiceSnapshot(
-        serviceId: 'svc_001',
-        name: 'General Consultation',
-        code: 'GEN',
-        estimatedDuration: 15,
-      ),
-      charge: const ChargeInfo(
-        defaultAmount: 30000,
-        isEditable: true,
-        minAmount: 15000,
-        maxAmount: 60000,
-      ),
-      joinedAt: DateTime.now().subtract(const Duration(minutes: 12)),
-    );
-  }
-
-  List<TokenModel> _mockWaiting() {
-    final now = DateTime.now();
-    return [
-      TokenModel(
-        id: 'tok_003',
-        queueId: 'q_001',
-        displayToken: 'A-103',
-        customerName: 'Anita Singh',
-        status: TokenStatus.waiting,
-        priority: TokenPriority.normal,
-        position: 1,
-        estimatedWaitMinutes: 8,
-        service: const TokenServiceSnapshot(name: 'General Consultation', code: 'GEN'),
-        charge: const ChargeInfo(defaultAmount: 30000, isEditable: true, minAmount: 15000, maxAmount: 60000),
-        joinedAt: now.subtract(const Duration(minutes: 30)),
-      ),
-      TokenModel(
-        id: 'tok_004',
-        queueId: 'q_001',
-        displayToken: 'A-104',
-        customerName: 'Rahul Mehta',
-        status: TokenStatus.waiting,
-        priority: TokenPriority.normal,
-        position: 2,
-        estimatedWaitMinutes: 16,
-        service: const TokenServiceSnapshot(name: 'Follow-up', code: 'FUP'),
-        charge: const ChargeInfo(defaultAmount: 15000, isEditable: false),
-        joinedAt: now.subtract(const Duration(minutes: 25)),
-      ),
-      TokenModel(
-        id: 'tok_005',
-        queueId: 'q_001',
-        displayToken: 'A-105',
-        customerName: 'Walk-in',
-        status: TokenStatus.waiting,
-        priority: TokenPriority.normal,
-        position: 3,
-        estimatedWaitMinutes: 24,
-        joinedAt: now.subtract(const Duration(minutes: 20)),
-      ),
-      TokenModel(
-        id: 'tok_006',
-        queueId: 'q_001',
-        displayToken: 'A-106',
-        customerName: 'Kavya Reddy',
-        status: TokenStatus.waiting,
-        priority: TokenPriority.normal,
-        position: 4,
-        estimatedWaitMinutes: 32,
-        service: const TokenServiceSnapshot(name: 'Blood Test', code: 'BT'),
-        charge: const ChargeInfo(defaultAmount: 50000, isEditable: true, minAmount: 20000),
-        joinedAt: now.subtract(const Duration(minutes: 15)),
-      ),
-    ];
   }
 }
 

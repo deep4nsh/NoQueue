@@ -50,10 +50,28 @@ export class TokenController {
     return this.tokenService.findById(id);
   }
 
+  @Patch(':id/call')
+  @ApiOperation({ summary: 'Call a WAITING token — set status to CALLED, notify customer' })
+  call(@Param('id') id: string) {
+    return this.tokenService.call(id);
+  }
+
   @Patch(':id/complete')
   @ApiOperation({ summary: 'Mark a token as completed' })
   complete(@Param('id') id: string) {
     return this.tokenService.complete(id);
+  }
+
+  @Patch(':id/skip')
+  @ApiOperation({ summary: 'Skip current token — move it to SKIPPED, recalculate queue' })
+  skip(@Param('id') id: string) {
+    return this.tokenService.skip(id);
+  }
+
+  @Patch(':id/recall')
+  @ApiOperation({ summary: 'Re-notify customer that their token is called (no status change)' })
+  recall(@Param('id') id: string) {
+    return this.tokenService.recall(id);
   }
 
   @Patch(':id/cancel')

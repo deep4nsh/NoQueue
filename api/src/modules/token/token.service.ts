@@ -18,6 +18,7 @@ import { ServiceEntity, ServiceDocument } from '../service/service.schema';
 import { JoinTokenDto } from './dto/join-token.dto';
 import { EmergencyTokenDto } from './dto/emergency-token.dto';
 import { UpdateChargeDto } from './dto/update-charge.dto';
+import { QueueGateway } from '../../gateways/queue.gateway';
 
 @Injectable()
 export class TokenService {
@@ -28,6 +29,7 @@ export class TokenService {
     private readonly queueModel: Model<QueueDocument>,
     @InjectModel(ServiceEntity.name)
     private readonly serviceModel: Model<ServiceDocument>,
+    private readonly gateway: QueueGateway,
   ) {}
 
   async join(dto: JoinTokenDto): Promise<TokenDocument> {
@@ -40,7 +42,7 @@ export class TokenService {
     await queue.save();
 
     const displayToken = `${queue.prefix}-${queue.lastTokenIssued}`;
-    const waitingTokens = await this._getWaitingTokens(queue._id as Types.ObjectId);
+    const waitingTokens = await this._getActiveTokens(queue._id as Types.ObjectId);
     const position = waitingTokens.length + 1;
     const estimatedWait = position * queue.averageServiceTime;
 
@@ -76,6 +78,8 @@ export class TokenService {
       joinedAt: new Date(),
     });
 
+    this.gateway.emitTokenJoined(dto.queueId, token.toObject());
+    this.gateway.emitQueueRefresh(dto.queueId);
     return token;
   }
 
@@ -130,6 +134,8 @@ export class TokenService {
 
     await this._recalculatePositions(queue._id as Types.ObjectId, queue.averageServiceTime);
 
+    this.gateway.emitTokenJoined(dto.queueId, token.toObject());
+    this.gateway.emitQueueRefresh(dto.queueId);
     return token;
   }
 
@@ -151,6 +157,26 @@ export class TokenService {
     return this._sortByPriorityThenTime(tokens);
   }
 
+  async call(id: string): Promise<TokenDocument> {
+    const token = await this.findById(id);
+    if (token.status !== TokenStatus.WAITING) {
+      throw new BadRequestException('Only WAITING tokens can be called');
+    }
+
+    token.status = TokenStatus.CALLED;
+    token.calledAt = new Date();
+    await token.save();
+
+    const queueId = token.queueId.toString();
+    this.gateway.emitTokenCalled(queueId, {
+      tokenId: id,
+      displayToken: token.displayToken,
+      customerName: token.customer.name,
+    });
+    this.gateway.emitQueueRefresh(queueId);
+    return token;
+  }
+
   async complete(id: string): Promise<TokenDocument> {
     const token = await this.findById(id);
     const queue = await this.queueModel.findById(token.queueId).exec();
@@ -159,7 +185,6 @@ export class TokenService {
     token.status = TokenStatus.COMPLETED;
     token.completedAt = new Date();
 
-    // Auto-confirm a still-pending charge with the default amount
     if (token.charge && token.charge.status === ChargeStatus.PENDING) {
       token.charge.finalAmount = token.charge.defaultAmount;
       token.charge.status = ChargeStatus.CONFIRMED;
@@ -168,6 +193,30 @@ export class TokenService {
 
     await token.save();
     await this._recalculatePositions(token.queueId, avgTime);
+
+    const queueId = token.queueId.toString();
+    this.gateway.emitTokenCompleted(queueId, id);
+    this.gateway.emitQueueRefresh(queueId);
+    return token;
+  }
+
+  async skip(id: string): Promise<TokenDocument> {
+    const token = await this.findById(id);
+    if (![TokenStatus.WAITING, TokenStatus.CALLED].includes(token.status)) {
+      throw new BadRequestException('Only WAITING or CALLED tokens can be skipped');
+    }
+
+    const queue = await this.queueModel.findById(token.queueId).exec();
+    const avgTime = queue?.averageServiceTime ?? 10;
+
+    token.status = TokenStatus.SKIPPED;
+    token.skippedAt = new Date();
+    await token.save();
+    await this._recalculatePositions(token.queueId, avgTime);
+
+    const queueId = token.queueId.toString();
+    this.gateway.emitTokenSkipped(queueId, id);
+    this.gateway.emitQueueRefresh(queueId);
     return token;
   }
 
@@ -179,7 +228,28 @@ export class TokenService {
     token.status = TokenStatus.CANCELLED;
     await token.save();
     await this._recalculatePositions(token.queueId, avgTime);
+
+    const queueId = token.queueId.toString();
+    this.gateway.emitTokenCancelled(queueId, id);
+    this.gateway.emitQueueRefresh(queueId);
     return token;
+  }
+
+  async recall(id: string): Promise<{ success: boolean }> {
+    const token = await this.findById(id);
+    if (token.status !== TokenStatus.CALLED) {
+      throw new BadRequestException('Only CALLED tokens can be recalled');
+    }
+
+    token.recalledCount = (token.recalledCount ?? 0) + 1;
+    await token.save();
+
+    this.gateway.emitTokenCalled(token.queueId.toString(), {
+      tokenId: id,
+      displayToken: token.displayToken,
+      customerName: token.customer.name,
+    });
+    return { success: true };
   }
 
   async updateCharge(id: string, dto: UpdateChargeDto): Promise<TokenDocument> {
@@ -215,6 +285,8 @@ export class TokenService {
     return token;
   }
 
+  // ─── Private helpers ─────────────────────────────────────────────────────────
+
   private async _getOpenQueue(queueId: string): Promise<QueueDocument> {
     const queue = await this.queueModel.findById(queueId).exec();
     if (!queue) throw new NotFoundException('Queue not found');
@@ -224,7 +296,7 @@ export class TokenService {
     return queue;
   }
 
-  private async _getWaitingTokens(queueId: Types.ObjectId): Promise<TokenDocument[]> {
+  private async _getActiveTokens(queueId: Types.ObjectId): Promise<TokenDocument[]> {
     return this.tokenModel
       .find({ queueId, status: { $in: [TokenStatus.WAITING, TokenStatus.CALLED] } })
       .exec();
@@ -234,7 +306,7 @@ export class TokenService {
     queueId: Types.ObjectId,
     avgServiceTime: number,
   ): Promise<void> {
-    const tokens = await this._getWaitingTokens(queueId);
+    const tokens = await this._getActiveTokens(queueId);
     const sorted = this._sortByPriorityThenTime(tokens);
 
     const ops = sorted.map((token, index) =>

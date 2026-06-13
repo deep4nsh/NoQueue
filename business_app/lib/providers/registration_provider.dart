@@ -3,12 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 class RegistrationState {
   final String businessId;
   final String businessName;
+  final String branchId;
   final String branchName;
   final String branchSlug;
 
   const RegistrationState({
     this.businessId = '',
     this.businessName = '',
+    this.branchId = '',
     this.branchName = '',
     this.branchSlug = '',
   });
@@ -16,12 +18,14 @@ class RegistrationState {
   RegistrationState copyWith({
     String? businessId,
     String? businessName,
+    String? branchId,
     String? branchName,
     String? branchSlug,
   }) {
     return RegistrationState(
       businessId: businessId ?? this.businessId,
       businessName: businessName ?? this.businessName,
+      branchId: branchId ?? this.branchId,
       branchName: branchName ?? this.branchName,
       branchSlug: branchSlug ?? this.branchSlug,
     );
@@ -40,8 +44,8 @@ class RegistrationNotifier extends Notifier<RegistrationState> {
     state = state.copyWith(businessName: name);
   }
 
-  void setBranch({required String name, required String slug}) {
-    state = state.copyWith(branchName: name, branchSlug: slug);
+  void setBranch({required String id, required String name, required String slug}) {
+    state = state.copyWith(branchId: id, branchName: name, branchSlug: slug);
   }
 }
 

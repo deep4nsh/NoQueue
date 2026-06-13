@@ -39,8 +39,17 @@ let TokenController = class TokenController {
     findOne(id) {
         return this.tokenService.findById(id);
     }
+    call(id) {
+        return this.tokenService.call(id);
+    }
     complete(id) {
         return this.tokenService.complete(id);
+    }
+    skip(id) {
+        return this.tokenService.skip(id);
+    }
+    recall(id) {
+        return this.tokenService.recall(id);
     }
     cancel(id) {
         return this.tokenService.cancel(id);
@@ -85,6 +94,14 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], TokenController.prototype, "findOne", null);
 __decorate([
+    (0, common_1.Patch)(':id/call'),
+    (0, swagger_1.ApiOperation)({ summary: 'Call a WAITING token — set status to CALLED, notify customer' }),
+    __param(0, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", void 0)
+], TokenController.prototype, "call", null);
+__decorate([
     (0, common_1.Patch)(':id/complete'),
     (0, swagger_1.ApiOperation)({ summary: 'Mark a token as completed' }),
     __param(0, (0, common_1.Param)('id')),
@@ -92,6 +109,22 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", void 0)
 ], TokenController.prototype, "complete", null);
+__decorate([
+    (0, common_1.Patch)(':id/skip'),
+    (0, swagger_1.ApiOperation)({ summary: 'Skip current token — move it to SKIPPED, recalculate queue' }),
+    __param(0, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", void 0)
+], TokenController.prototype, "skip", null);
+__decorate([
+    (0, common_1.Patch)(':id/recall'),
+    (0, swagger_1.ApiOperation)({ summary: 'Re-notify customer that their token is called (no status change)' }),
+    __param(0, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", void 0)
+], TokenController.prototype, "recall", null);
 __decorate([
     (0, common_1.Patch)(':id/cancel'),
     (0, swagger_1.ApiOperation)({ summary: 'Cancel a token' }),
