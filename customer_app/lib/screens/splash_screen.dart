@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:lottie/lottie.dart';
 import '../providers/auth_provider.dart';
 import '../theme/app_theme.dart';
 
@@ -105,33 +106,35 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
           child: Column(
             children: [
               const Spacer(flex: 2),
-              // Logo
-              AnimatedBuilder(
-                animation: _logoController,
-                builder: (context, child) => Opacity(
-                  opacity: _logoOpacity.value,
-                  child: Transform.scale(scale: _logoScale.value, child: child),
-                ),
-                child: Container(
-                  width: 100,
-                  height: 100,
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [AppTheme.primaryColor, AppTheme.secondaryColor],
-                    ),
-                    borderRadius: BorderRadius.circular(28),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppTheme.primaryColor.withOpacity(0.4),
-                        blurRadius: 36,
-                        offset: const Offset(0, 18),
+              // Logo with Lottie Animation
+              Lottie.network(
+                'https://lottie.host/e2b4f9a3-5c8e-4a6f-b2b9-e85d97f8c0de/LpQkO9mPzY.json',
+                width: 200,
+                height: 200,
+                fit: BoxFit.contain,
+                errorBuilder: (context, error, stackTrace) {
+                  // Fallback if network fails
+                  return Container(
+                    width: 100,
+                    height: 100,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [AppTheme.primaryColor, AppTheme.secondaryColor],
                       ),
-                    ],
-                  ),
-                  child: const Icon(Icons.queue_rounded, size: 56, color: Colors.white),
-                ),
+                      borderRadius: BorderRadius.circular(28),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppTheme.primaryColor.withOpacity(0.4),
+                          blurRadius: 36,
+                          offset: const Offset(0, 18),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(Icons.queue_rounded, size: 56, color: Colors.white),
+                  );
+                },
               ),
               const SizedBox(height: 32),
               // Brand text

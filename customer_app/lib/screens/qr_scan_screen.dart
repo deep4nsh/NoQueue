@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 import '../models/models.dart';
 import '../providers/queue_provider.dart';
 import '../theme/app_theme.dart';
@@ -51,7 +52,7 @@ class _QrScanScreenState extends ConsumerState<QrScanScreen>
     return Scaffold(
       backgroundColor: const Color(0xFF0F0F1E),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF0F0F1E),
+        backgroundColor: Colors.transparent,
         foregroundColor: Colors.white,
         elevation: 0,
         title: const Text(
@@ -59,28 +60,37 @@ class _QrScanScreenState extends ConsumerState<QrScanScreen>
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
         ),
       ),
+      extendBodyBehindAppBar: true,
       body: Stack(
         children: [
-          // Background texture
-          Container(
-            color: const Color(0xFF0F0F1E),
+          // The actual camera scanner
+          MobileScanner(
+            onDetect: (capture) {
+              if (_isLoadingQueue || _scannedQr != null) return;
+              final List<Barcode> barcodes = capture.barcodes;
+              for (final barcode in barcodes) {
+                final rawValue = barcode.rawValue;
+                if (rawValue != null && rawValue.contains('noqueue.app/join/')) {
+                  _processValidQr(rawValue);
+                  break;
+                }
+              }
+            },
           ),
-          // Scanner box area — centered
+          // Scanner overlay
           Center(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Instruction text above
                 Text(
                   'Point camera at a QR code',
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.7),
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
+                    color: Colors.white.withOpacity(0.9),
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
                 const SizedBox(height: 32),
-                // Scan frame with corner brackets + scan line
                 AnimatedBuilder(
                   animation: _scanAnimation,
                   builder: (context, child) => SizedBox(
@@ -97,43 +107,11 @@ class _QrScanScreenState extends ConsumerState<QrScanScreen>
                 Text(
                   'Usually found at the reception desk',
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.45),
-                    fontSize: 12,
+                    color: Colors.white.withOpacity(0.8),
+                    fontSize: 14,
                   ),
                 ),
               ],
-            ),
-          ),
-          // Bottom CTA
-          Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            child: Container(
-              padding: const EdgeInsets.fromLTRB(24, 40, 24, 48),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.transparent,
-                    const Color(0xFF0F0F1E).withOpacity(0.9),
-                    const Color(0xFF0F0F1E),
-                  ],
-                ),
-              ),
-              child: SizedBox(
-                width: double.infinity,
-                height: 54,
-                child: ElevatedButton.icon(
-                  onPressed: _isLoadingQueue ? null : _mockScanQr,
-                  icon: const Icon(Icons.qr_code_scanner_rounded),
-                  label: const Text(
-                    'Simulate Scan',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-                  ),
-                ),
-              ),
             ),
           ),
           // Loading overlay
@@ -175,6 +153,41 @@ class _QrScanScreenState extends ConsumerState<QrScanScreen>
         ],
       ),
     );
+  }
+
+  Future<void> _processValidQr(String qrData) async {
+    setState(() => _isLoadingQueue = true);
+    try {
+      final slug = qrData.split('/').last;
+      await ref.read(queueProvider.notifier).fetchQueueByBranch(slug);
+      setState(() {
+        _scannedQr = qrData;
+        _previewQueue = Queue(
+          id: '1',
+          branchId: 'branch_123',
+          name: 'General OPD',
+          prefix: 'A',
+          currentToken: 94,
+          lastTokenIssued: 102,
+          averageServiceTime: 8,
+          status: 'OPEN',
+          waitingCount: 8,
+        );
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: ${e.toString()}'),
+            backgroundColor: AppTheme.errorColor,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoadingQueue = false);
+    }
   }
 
   Future<void> _mockScanQr() async {
