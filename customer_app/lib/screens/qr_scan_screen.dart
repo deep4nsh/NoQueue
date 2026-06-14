@@ -158,21 +158,13 @@ class _QrScanScreenState extends ConsumerState<QrScanScreen>
   Future<void> _processValidQr(String qrData) async {
     setState(() => _isLoadingQueue = true);
     try {
-      final slug = qrData.split('/').last;
-      await ref.read(queueProvider.notifier).fetchQueueByBranch(slug);
+      // QR format: noqueue.app/q/{queueId} — last segment is the queueId
+      final queueId = qrData.split('/').last;
+      await ref.read(queueProvider.notifier).fetchQueueById(queueId);
+      final queue = ref.read(queueProvider);
       setState(() {
         _scannedQr = qrData;
-        _previewQueue = Queue(
-          id: '1',
-          branchId: 'branch_123',
-          name: 'General OPD',
-          prefix: 'A',
-          currentToken: 94,
-          lastTokenIssued: 102,
-          averageServiceTime: 8,
-          status: 'OPEN',
-          waitingCount: 8,
-        );
+        _previewQueue = queue;
       });
     } catch (e) {
       if (mounted) {
@@ -191,24 +183,16 @@ class _QrScanScreenState extends ConsumerState<QrScanScreen>
   }
 
   Future<void> _mockScanQr() async {
-    const qrData = 'noqueue.app/join/city-clinic';
+    // Replace with a real queueId from your MongoDB during development
+    const qrData = 'noqueue.app/q/QUEUE_ID_HERE';
     setState(() => _isLoadingQueue = true);
     try {
-      final slug = qrData.split('/').last;
-      await ref.read(queueProvider.notifier).fetchQueueByBranch(slug);
+      final queueId = qrData.split('/').last;
+      await ref.read(queueProvider.notifier).fetchQueueById(queueId);
+      final queue = ref.read(queueProvider);
       setState(() {
         _scannedQr = qrData;
-        _previewQueue = Queue(
-          id: '1',
-          branchId: 'branch_123',
-          name: 'General OPD',
-          prefix: 'A',
-          currentToken: 94,
-          lastTokenIssued: 102,
-          averageServiceTime: 8,
-          status: 'OPEN',
-          waitingCount: 8,
-        );
+        _previewQueue = queue;
       });
     } catch (e) {
       if (mounted) {

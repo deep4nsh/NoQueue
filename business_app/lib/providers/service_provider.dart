@@ -109,7 +109,7 @@ class ServiceNotifier extends Notifier<ServiceState> {
       branchId: j['branchId'] as String?,
       name: j['name'] as String? ?? '',
       code: j['code'] as String? ?? '',
-      description: j['description'] as String?,
+      description: j['description'] as String? ?? '',
       category: _parseCategory(j['category'] as String? ?? ''),
       charge: ServiceCharge(
         amount: charge['amount'] as int? ?? 0,
@@ -128,7 +128,7 @@ class ServiceNotifier extends Notifier<ServiceState> {
         if (s.branchId != null) 'branchId': s.branchId,
         'name': s.name,
         'code': s.code,
-        if (s.description != null) 'description': s.description,
+        'description': s.description,
         'category': s.category.name.toUpperCase(),
         'charge': {
           'amount': s.charge.amount,

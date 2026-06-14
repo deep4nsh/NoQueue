@@ -218,6 +218,7 @@ class QueueStateNotifier extends Notifier<QueueState> {
   }
 
   void _subscribeSocket(String queueId) {
+    _socket.off('queue:refresh'); // Clear any old listeners
     _socket.joinQueue(queueId);
     _socket.on('queue:refresh', (_) => refreshQueue());
   }

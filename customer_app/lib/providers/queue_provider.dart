@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/models.dart';
+import '../services/api_service.dart';
 
-// Mock queue data
 final queueProvider = StateNotifierProvider<QueueNotifier, Queue?>((ref) {
   return QueueNotifier();
 });
@@ -9,26 +9,11 @@ final queueProvider = StateNotifierProvider<QueueNotifier, Queue?>((ref) {
 class QueueNotifier extends StateNotifier<Queue?> {
   QueueNotifier() : super(null);
 
-  Future<void> fetchQueueByBranch(String branchSlug) async {
-    // Mock API call — replace with actual API
-    await Future.delayed(const Duration(seconds: 1));
-    state = Queue(
-      id: '1',
-      branchId: 'branch_123',
-      name: 'General OPD',
-      prefix: 'A',
-      currentToken: 94,
-      lastTokenIssued: 102,
-      averageServiceTime: 8,
-      status: 'OPEN',
-      waitingCount: 8,
-    );
-  }
+  final _api = ApiService();
 
-  Future<void> joinQueue(String queueId, String customerName, String customerPhone) async {
-    // Mock API call
-    await Future.delayed(const Duration(seconds: 1));
-    // State remains the same for now
+  Future<void> fetchQueueById(String queueId) async {
+    final data = await _api.getQueueById(queueId);
+    state = _fromJson(data);
   }
 
   void updateQueueState(Queue updatedQueue) {
@@ -38,10 +23,24 @@ class QueueNotifier extends StateNotifier<Queue?> {
   void reset() {
     state = null;
   }
+
+  Queue _fromJson(Map<String, dynamic> j) {
+    return Queue(
+      id: (j['_id'] ?? j['id']) as String,
+      branchId: j['branchId'] as String? ?? '',
+      name: j['name'] as String? ?? '',
+      prefix: j['prefix'] as String? ?? 'A',
+      currentToken: j['currentToken'] as int? ?? 0,
+      lastTokenIssued: j['lastTokenIssued'] as int? ?? 0,
+      averageServiceTime: j['averageServiceTime'] as int? ?? 10,
+      status: j['status'] as String? ?? 'OPEN',
+      waitingCount: j['waitingCount'] as int? ?? 0,
+    );
+  }
 }
 
-// Queue preview data (before joining)
+// Queue preview shown before joining (populated from QR scan → fetch)
 final queuePreviewProvider = StateProvider<Queue?>((ref) => null);
 
-// Selected queue ID (after joining)
+// The queueId the customer is currently in
 final selectedQueueIdProvider = StateProvider<String?>((ref) => null);
