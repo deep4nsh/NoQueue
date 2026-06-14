@@ -14,9 +14,11 @@ final _container = ProviderContainer();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  if (Firebase.apps.isEmpty) {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  }
   await NotificationService.initialize(
     onTap: _handleNotificationTap,
     onForeground: _addToAlerts,
