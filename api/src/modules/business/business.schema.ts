@@ -1,5 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document } from 'mongoose';
+import { Document, Types } from 'mongoose';
 
 export type BusinessDocument = Business & Document;
 
@@ -45,6 +45,9 @@ export class Business {
 
   @Prop({ default: 'Asia/Kolkata' })
   timezone: string;
+
+  @Prop({ type: Types.ObjectId, ref: 'UserEntity' })
+  owner: Types.ObjectId;
 }
 
 export const BusinessSchema = SchemaFactory.createForClass(Business);

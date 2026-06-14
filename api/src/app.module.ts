@@ -3,6 +3,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { MongooseModule } from '@nestjs/mongoose';
 import { BusinessModule } from './modules/business/business.module';
+import { BranchModule } from './modules/branch/branch.module';
 import { QueueModule } from './modules/queue/queue.module';
 import { ServiceModule } from './modules/service/service.module';
 import { TokenModule } from './modules/token/token.module';
@@ -24,6 +25,7 @@ import { RolesGuard } from './modules/auth/guards/roles.guard';
     UserModule,
     AuthModule,
     BusinessModule,
+    BranchModule,
     QueueModule,
     ServiceModule,
     TokenModule,
