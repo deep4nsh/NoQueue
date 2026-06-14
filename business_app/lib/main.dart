@@ -8,9 +8,15 @@ import 'services/notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  try {
+    if (Firebase.apps.isEmpty) {
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+    }
+  } catch (e) {
+    // Firebase already initialized, continue
+  }
   await NotificationService.initialize(onTap: _handleNotificationTap);
   runApp(const ProviderScope(child: BusinessApp()));
 }
