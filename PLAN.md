@@ -619,36 +619,48 @@ Placement: reception desk, waiting room, front door, parking area, business card
 
 ### Environments
 
-| Environment | Purpose                          |
-| ----------- | -------------------------------- |
-| `local`     | Developer machine (Docker Compose) |
-| `staging`   | Pre-production, mirrors prod     |
-| `production`| Live system                      |
+| Environment | Purpose                          | Database |
+| ----------- | -------------------------------- | -------- |
+| `local`     | Developer machine                | MongoDB Atlas free tier + Upstash free Redis |
+| `staging`   | Pre-production, mirrors prod     | MongoDB Atlas shared tier + Upstash Pro |
+| `production`| Live system                      | MongoDB Atlas (M10+) + Upstash Standard |
 
-### Docker Compose (local dev)
+### Local Development Setup
 
-```yaml
-services:
-  api:        # NestJS
-  mongo:      # MongoDB
-  redis:      # Redis
-  mongo-express:  # DB UI (dev only)
+```bash
+# 1. Create MongoDB Atlas free cluster (M0)
+# - Sign up at mongodb.com/cloud
+# - Create cluster in your region
+# - Copy connection string: mongodb+srv://user:pass@cluster.mongodb.net/noqueue
+
+# 2. Create Upstash Redis free instance
+# - Sign up at upstash.com
+# - Copy Redis URL: redis://default:token@host:port
+
+# 3. Set environment variables
+cp api/.env.example api/.env
+# Edit api/.env with your connection strings
+
+# 4. Start dev server
+npm run dev
 ```
 
-### Production (Phase 1 — lean)
+### Cloud-First Architecture
 
-| Service      | Provider                 |
-| ------------ | ------------------------ |
-| API          | Railway / Render / Fly.io |
-| MongoDB      | MongoDB Atlas (M10+)     |
-| Redis        | Upstash / Redis Cloud    |
-| Files        | Cloudinary               |
-| FCM          | Firebase (free)          |
-| WhatsApp     | Meta Cloud API           |
-| Payments     | Razorpay                 |
-| Monitoring   | Sentry + UptimeRobot     |
+All services use cloud providers — no local Docker required:
 
-All environment variables managed via `.env` files — never hardcoded.
+| Service      | Provider                 | Free Tier? |
+| ------------ | ------------------------ | --------- |
+| API          | Railway / Render / Fly.io | Yes (limited) |
+| MongoDB      | MongoDB Atlas (M0)       | Yes (512MB) |
+| Redis        | Upstash (free)           | Yes (10,000 cmds/day) |
+| Files        | Cloudinary               | Yes (25GB/month) |
+| FCM          | Firebase (free)          | Yes (unlimited) |
+| WhatsApp     | Meta Cloud API           | No (pay-per-message) |
+| Payments     | Razorpay                 | No (1.99% + fees) |
+| Monitoring   | Sentry + UptimeRobot     | Yes (limited) |
+
+All environment variables managed via `.env` files — never hardcoded. See `.env.example` for required variables.
 
 ---
 
@@ -700,26 +712,31 @@ This allows:
 
 ## MVP Scope (Build First — Weeks 1–6)
 
-### Week 1–2: Foundation
+### Week 1–2: Foundation ✅ COMPLETE
 
-- [ ] NestJS project setup, MongoDB, Redis, Docker Compose
-- [ ] Auth module: phone OTP login for customers, email+password for staff
-- [ ] RBAC guards
-- [ ] Business + Branch CRUD
-- [ ] Queue create / open / close
-- [ ] Token join / call-next / skip / complete
+- [x] NestJS project setup, MongoDB, Redis configuration
+- [x] Auth module: phone OTP login (Firebase) for customers, email+password for staff
+- [x] RBAC guards (@Roles decorator) with 4 roles (CUSTOMER, RECEPTIONIST, OWNER, ADMIN)
+- [x] Business CRUD (create, read, update, delete with owner tracking)
+- [x] Branch CRUD (complete module with staff management, QR codes, opening hours)
+- [x] Queue create / open / pause / close with status validation
+- [x] Token join / call / skip / complete / emergency with position calculation
+- [x] Service CRUD with pricing and categorization
 
-### Week 3: Real-time + Notifications
+### Week 3: Real-time + Notifications ✅ COMPLETE
 
-- [ ] REST API endpoints for token/queue status
-- [ ] FCM push notifications
-- [ ] WhatsApp Cloud API — TOKEN_JOINED and APPROACHING messages
-- [ ] BullMQ notification job processor
+- [x] REST API endpoints for token/queue status (GET /token/:id, GET /queue/:id/live)
+- [x] FCM push notifications integrated into token state changes
+- [x] Notification module with multi-channel support (FCM, WhatsApp, SMS, Email)
+- [x] Notification audit logging (delivery status, retry tracking, provider responses)
+- [x] WhatsApp Cloud API structure (ready for implementation, webhook receiver)
+- [ ] BullMQ notification job processor (queued for Week 4)
 
-### Week 4: Customer Flutter App
+### Week 4: Customer Flutter App + Job Queue
 
-- [ ] QR scan + join flow
-- [ ] Token status screen (polling updates)
+- [ ] BullMQ notification retry system with exponential backoff
+- [ ] QR scan + join flow (UI skeleton exists)
+- [ ] Token status screen with polling (REST endpoints ready)
 - [ ] Push notification handling
 - [ ] Profile + token history
 
@@ -731,6 +748,7 @@ This allows:
 
 ### Week 6: Polish + Pilot
 
+- [ ] WhatsApp Bot conversational flows
 - [ ] QR generation + print PDF export
 - [ ] Error handling, loading states, offline detection
 - [ ] Onboard 1 pilot business (clinic or salon)
