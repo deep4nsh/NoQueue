@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/token.dart';
 import '../models/service.dart';
 import '../services/api_service.dart';
-import '../services/socket_service.dart';
 
 class QueueState {
   final QueueSnapshot? queue;
@@ -43,7 +42,6 @@ class QueueState {
 
 class QueueStateNotifier extends Notifier<QueueState> {
   final _api = ApiService();
-  final _socket = SocketService();
 
   @override
   QueueState build() => const QueueState();
@@ -82,8 +80,6 @@ class QueueStateNotifier extends Notifier<QueueState> {
         serving: serving,
         waiting: waiting,
       );
-
-      _subscribeSocket(queueId);
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
     }
@@ -186,7 +182,7 @@ class QueueStateNotifier extends Notifier<QueueState> {
         'customer': {'name': name, 'phone': phone},
         if (serviceId != null) 'serviceId': serviceId,
       });
-      // Socket will trigger queue:refresh → refreshQueue()
+      await refreshQueue();
       state = state.copyWith(isLoading: false);
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
@@ -215,12 +211,6 @@ class QueueStateNotifier extends Notifier<QueueState> {
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
     }
-  }
-
-  void _subscribeSocket(String queueId) {
-    _socket.off('queue:refresh'); // Clear any old listeners
-    _socket.joinQueue(queueId);
-    _socket.on('queue:refresh', (_) => refreshQueue());
   }
 
   // ─── Parsing helpers ─────────────────────────────────────────────────────────

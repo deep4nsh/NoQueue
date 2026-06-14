@@ -1,7 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
-import '../services/socket_service.dart';
 
 final currentTokenProvider =
     StateNotifierProvider<CurrentTokenNotifier, Token?>((ref) {
@@ -12,7 +11,6 @@ class CurrentTokenNotifier extends StateNotifier<Token?> {
   CurrentTokenNotifier() : super(null);
 
   final _api = ApiService();
-  final _socket = SocketService();
 
   Future<void> joinQueue(String queueId, String name, String phone) async {
     final data = await _api.joinQueue({
@@ -20,26 +18,17 @@ class CurrentTokenNotifier extends StateNotifier<Token?> {
       'customer': {'name': name, 'phone': phone},
     });
     state = _fromJson(data);
-
-    // Subscribe to socket room so we get called/queue:refresh events
-    _subscribeSocket(queueId, state!.id);
   }
 
   Future<void> fetchToken(String tokenId) async {
     final data = await _api.getToken(tokenId);
     state = _fromJson(data);
-    // Leave queue room if token reached a terminal state
-    if (state != null &&
-        ['COMPLETED', 'SKIPPED', 'CANCELLED', 'NO_SHOW'].contains(state!.status)) {
-      _socket.leaveQueue();
-    }
   }
 
   Future<void> cancelToken() async {
     if (state == null) return;
     final data = await _api.cancelToken(state!.id);
     state = _fromJson(data);
-    _socket.leaveQueue();
   }
 
   void updateTokenStatus(String newStatus) {
@@ -61,26 +50,7 @@ class CurrentTokenNotifier extends StateNotifier<Token?> {
   }
 
   void reset() {
-    _socket.leaveQueue();
     state = null;
-  }
-
-  void _subscribeSocket(String queueId, String myTokenId) {
-    _socket.off('token:called');
-    _socket.off('queue:refresh');
-    _socket.joinQueue(queueId);
-
-    // When our specific token is called, update status
-    _socket.on('token:called', (data) {
-      if (data is Map && data['tokenId'] == myTokenId) {
-        updateTokenStatus('CALLED');
-      }
-    });
-
-    // On any queue change, refresh our token position
-    _socket.on('queue:refresh', (_) {
-      if (state != null) fetchToken(state!.id);
-    });
   }
 
   Token _fromJson(Map<String, dynamic> j) {
