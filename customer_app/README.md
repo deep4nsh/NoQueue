@@ -22,7 +22,7 @@ lib/
 │   └── notification_provider.dart
 ├── config/
 │   └── router.dart        # GoRouter configuration
-├── services/              # API clients, Socket.IO, FCM (to be added)
+├── services/              # API clients, FCM (to be added)
 ├── widgets/               # Reusable UI components (to be added)
 └── utils/                 # Helpers, validators, constants (to be added)
 ```
@@ -46,7 +46,7 @@ lib/
 ### Phase 2 (Next)
 
 - [ ] Real API integration (replace mock calls)
-- [ ] Socket.IO real-time updates
+- [ ] Polling for real-time token/queue updates
 - [ ] Firebase Cloud Messaging (FCM) push notifications
 - [ ] Mobile Scanner (QR scanning with camera)
 - [ ] Secure token storage
@@ -131,7 +131,7 @@ Routes are centralized in `lib/config/router.dart`:
 
 1. **Set up backend API** (NestJS + MongoDB)
 2. **Create API client service** (`lib/services/api_client.dart`)
-3. **Replace mock calls** with real HTTP + WebSocket
+3. **Replace mock calls** with real HTTP calls
 4. **Configure Firebase** for push notifications
 5. **Test on device** (Android + iOS)
 6. **Pilot with first clinic/salon**
@@ -142,6 +142,5 @@ See `pubspec.yaml` for the full list. Key packages:
 - `flutter_riverpod` — State management
 - `go_router` — Navigation
 - `dio` — HTTP client (to be used)
-- `socket_io_client` — Real-time (to be used)
 - `firebase_messaging` — Push notifications (to be used)
 - `mobile_scanner` — QR code scanning (to be used)

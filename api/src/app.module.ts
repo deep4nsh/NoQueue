@@ -6,7 +6,6 @@ import { BusinessModule } from './modules/business/business.module';
 import { QueueModule } from './modules/queue/queue.module';
 import { ServiceModule } from './modules/service/service.module';
 import { TokenModule } from './modules/token/token.module';
-import { GatewaysModule } from './gateways/gateways.module';
 import { UserModule } from './modules/user/user.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
@@ -24,7 +23,6 @@ import { RolesGuard } from './modules/auth/guards/roles.guard';
     }),
     UserModule,
     AuthModule,
-    GatewaysModule,
     BusinessModule,
     QueueModule,
     ServiceModule,

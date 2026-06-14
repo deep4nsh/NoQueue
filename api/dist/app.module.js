@@ -15,7 +15,6 @@ const business_module_1 = require("./modules/business/business.module");
 const queue_module_1 = require("./modules/queue/queue.module");
 const service_module_1 = require("./modules/service/service.module");
 const token_module_1 = require("./modules/token/token.module");
-const gateways_module_1 = require("./gateways/gateways.module");
 const user_module_1 = require("./modules/user/user.module");
 const auth_module_1 = require("./modules/auth/auth.module");
 const jwt_auth_guard_1 = require("./modules/auth/guards/jwt-auth.guard");
@@ -36,7 +35,6 @@ exports.AppModule = AppModule = __decorate([
             }),
             user_module_1.UserModule,
             auth_module_1.AuthModule,
-            gateways_module_1.GatewaysModule,
             business_module_1.BusinessModule,
             queue_module_1.QueueModule,
             service_module_1.ServiceModule,

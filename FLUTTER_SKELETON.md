@@ -133,10 +133,10 @@ flutter run -d <device-id>  # iOS simulator
    - Replace mock calls in providers with real API
    - Handle network errors, timeouts, retries
 
-### 3. **Real-time** (Socket.IO)
-   - Create `lib/services/socket_service.dart`
-   - Subscribe to queue updates in home screen
-   - Live position + wait time updates
+### 3. **Real-time Updates** (Polling)
+   - Add polling timer in token status provider
+   - Fetch queue/token status every 5-10 seconds
+   - Display position + wait time updates
 
 ### 4. **Push Notifications** (FCM)
    - Configure Firebase in Xcode + Android Studio

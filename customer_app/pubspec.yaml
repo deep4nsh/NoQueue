@@ -42,9 +42,6 @@ dependencies:
   # HTTP
   dio: ^5.4.0
 
-  # Real-time
-  socket_io_client: ^3.1.5
-
   # QR Scan & Generate
   mobile_scanner: ^7.2.0
   qr_flutter: ^4.1.0

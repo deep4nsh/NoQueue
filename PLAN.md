@@ -251,8 +251,8 @@ Schema is designed so that no field needs to be renamed or restructured through 
 | -------------- | --------------------- | ------------------------------------------- |
 | Framework      | NestJS                | Modular, decorator-based, scales well       |
 | Database       | MongoDB + Mongoose    | Flexible schema, easy horizontal sharding   |
-| Cache / Pub-Sub| Redis                 | Queue state cache + Socket.IO adapter       |
-| Real-time      | Socket.IO             | Namespace-based room management             |
+| Cache / Pub-Sub| Redis                 | Queue state cache                           |
+| Real-time      | REST Polling + Webhooks | Token status updates, event notifications   |
 | Auth           | JWT + Refresh Tokens  | Stateless, mobile-friendly                  |
 | Validation     | class-validator       | DTO-level validation                        |
 | Queue (jobs)   | BullMQ (Redis)        | Notification retries, scheduled tasks       |
@@ -286,9 +286,6 @@ src/
 │   ├── analytics/
 │   ├── subscription/
 │   └── whatsapp-bot/
-│
-├── gateways/
-│   └── queue.gateway.ts  # Socket.IO gateway
 │
 ├── jobs/                  # BullMQ processors
 │   ├── notification.job.ts
@@ -381,45 +378,31 @@ POST   /subscription/webhook/razorpay    # payment webhook
 
 ---
 
-## Real-Time — Socket.IO
+## Real-Time Updates
 
-Redis adapter is configured from day one so the socket layer is horizontally scalable (multiple API pods all share the same pub/sub).
+Token and queue status updates are delivered via:
 
-### Namespaces
+### REST Polling (Client-initiated)
 
-| Namespace  | Used by                   |
-| ---------- | ------------------------- |
-| `/queue`   | Staff (receptionist/manager) |
-| `/token`   | Customers tracking their token |
-
-### Rooms
-
-Each socket joins a room on connection:
-- Staff: `queue:{queueId}`
-- Customer: `token:{tokenId}` and `queue:{queueId}`
-
-### Events (Server → Client)
+Clients poll endpoints at regular intervals (5-10 second intervals for customers, faster for staff):
 
 ```ts
-// Customer receives:
-"token:updated"       // { position, estimatedWaitMinutes, status }
-"token:called"        // { message, roomNumber? }
-"queue:updated"       // { currentToken, waitingCount }
-
-// Staff receives:
-"token:joined"        // new token added to their queue
-"queue:state"         // full queue state after any change
-"token:cancelled"     // customer cancelled
+GET /api/v1/tokens/{tokenId}/status    // Customer checks their token position
+GET /api/v1/queues/{queueId}/status    // Staff checks queue state
 ```
 
-### Events (Client → Server)
+### Push Notifications (Server-initiated)
 
+For critical events (token called, queue ready), notifications are sent via:
+- **FCM** (Firebase Cloud Messaging) for app users
+- **WhatsApp** for all users
+- **SMS** as fallback
+
+### Event Log
+
+State changes are logged and can be queried:
 ```ts
-// Customer:
-"token:track"         // { tokenId } — subscribe to updates
-
-// Staff:
-"queue:subscribe"     // { queueId } — subscribe to queue room
+GET /api/v1/tokens/{tokenId}/events    // History of all changes
 ```
 
 ---
@@ -547,7 +530,7 @@ Home
 └──────────────────────────────┘
 ```
 
-Live-updated via Socket.IO. Background FCM notification when app is closed.
+Live-updated via polling. Background FCM notification when app is closed.
 
 #### QR Scan
 
@@ -559,7 +542,7 @@ Uses `mobile_scanner` package. On successful scan:
 
 ### State Management
 
-**Riverpod** — supports both sync and async state cleanly, works well with Socket.IO streams.
+**Riverpod** — supports both sync and async state cleanly, works well with periodic polling and async state updates.
 
 ### Packages
 
@@ -567,7 +550,6 @@ Uses `mobile_scanner` package. On successful scan:
 | ---------------- | ------------------------- |
 | HTTP             | `dio`                     |
 | State            | `flutter_riverpod`        |
-| WebSocket        | `socket_io_client`        |
 | QR Scan          | `mobile_scanner`          |
 | QR Generate      | `qr_flutter`              |
 | Push notif       | `firebase_messaging`      |
@@ -729,7 +711,7 @@ This allows:
 
 ### Week 3: Real-time + Notifications
 
-- [ ] Socket.IO gateway with Redis adapter
+- [ ] REST API endpoints for token/queue status
 - [ ] FCM push notifications
 - [ ] WhatsApp Cloud API — TOKEN_JOINED and APPROACHING messages
 - [ ] BullMQ notification job processor
@@ -737,7 +719,7 @@ This allows:
 ### Week 4: Customer Flutter App
 
 - [ ] QR scan + join flow
-- [ ] Token status screen (live socket updates)
+- [ ] Token status screen (polling updates)
 - [ ] Push notification handling
 - [ ] Profile + token history
 
@@ -779,7 +761,7 @@ This allows:
 | Monolith vs microservices        | Modular monolith        | Speed to MVP; seams are correct so extraction is easy   |
 | SQL vs NoSQL                     | MongoDB                 | Flexible schema suits multi-vertical queue configs      |
 | Mobile framework                 | Flutter                 | Single codebase, Android + iOS + Web (admin)            |
-| Real-time transport              | Socket.IO + Redis       | Horizontally scalable from day one                      |
+| Real-time transport              | REST Polling + FCM/WhatsApp | Polling for status checks; push for critical events    |
 | Notification queue               | BullMQ                  | Retry, delay, priority; no dropped notifications        |
 | WhatsApp provider                | Meta Cloud API official | No middleman, reliable, required for production scale   |
 | Payments                         | Razorpay                | Best UPI + Indian market support                        |

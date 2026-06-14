@@ -11,6 +11,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
+var _a;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.TokenService = void 0;
 const common_1 = require("@nestjs/common");
@@ -287,7 +288,6 @@ exports.TokenService = TokenService = __decorate([
     __param(2, (0, mongoose_1.InjectModel)(service_schema_1.ServiceEntity.name)),
     __metadata("design:paramtypes", [mongoose_2.Model,
         mongoose_2.Model,
-        mongoose_2.Model,
-        queue_gateway_1.QueueGateway])
+        mongoose_2.Model, typeof (_a = typeof queue_gateway_1.QueueGateway !== "undefined" && queue_gateway_1.QueueGateway) === "function" ? _a : Object])
 ], TokenService);
 //# sourceMappingURL=token.service.js.map
