@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
@@ -19,9 +20,14 @@ import { JoinTokenDto } from './dto/join-token.dto';
 import { EmergencyTokenDto } from './dto/emergency-token.dto';
 import { UpdateChargeDto } from './dto/update-charge.dto';
 import { QueueGateway } from '../../gateways/queue.gateway';
+import { NotificationService } from '../notification/notification.service';
+import { NotificationChannel, NotificationEvent } from '../notification/notification.schema';
+import { UserService } from '../user/user.service';
 
 @Injectable()
 export class TokenService {
+  private readonly logger = new Logger(TokenService.name);
+
   constructor(
     @InjectModel(TokenEntity.name)
     private readonly tokenModel: Model<TokenDocument>,
@@ -30,6 +36,8 @@ export class TokenService {
     @InjectModel(ServiceEntity.name)
     private readonly serviceModel: Model<ServiceDocument>,
     private readonly gateway: QueueGateway,
+    private readonly notificationService: NotificationService,
+    private readonly userService: UserService,
   ) {}
 
   async join(dto: JoinTokenDto, userId?: string): Promise<TokenDocument> {
@@ -80,6 +88,38 @@ export class TokenService {
 
     this.gateway.emitTokenJoined(dto.queueId, token.toObject());
     this.gateway.emitQueueRefresh(dto.queueId);
+
+    // Trigger FCM notification for token joined
+    if (token.customer.userId) {
+      try {
+        const user = await this.userService.findById(token.customer.userId.toString());
+        if (user && user.fcmToken) {
+          const notificationPayload = {
+            displayToken: token.displayToken,
+            position: token.position.toString(),
+            estimatedWait: token.estimatedWaitMinutes.toString(),
+          };
+
+          await this.notificationService.logNotification(
+            token._id.toString(),
+            NotificationChannel.FCM,
+            NotificationEvent.TOKEN_JOINED,
+            user.fcmToken,
+            notificationPayload,
+          );
+
+          this.notificationService.sendFcmNotification(
+            user.fcmToken,
+            'Token Added',
+            `Your token is ${token.displayToken}. Position: ${token.position}, Est. wait: ${token.estimatedWaitMinutes} mins.`,
+            notificationPayload,
+          ).catch(err => this.logger.error(`FCM notification failed: ${err.message}`));
+        }
+      } catch (error) {
+        this.logger.error(`Failed to send join notification: ${error.message}`);
+      }
+    }
+
     return token;
   }
 
@@ -174,6 +214,37 @@ export class TokenService {
       customerName: token.customer.name,
     });
     this.gateway.emitQueueRefresh(queueId);
+
+    // Trigger FCM notification if user has FCM token
+    if (token.customer.userId) {
+      try {
+        const user = await this.userService.findById(token.customer.userId.toString());
+        if (user && user.fcmToken) {
+          const notificationPayload = {
+            displayToken: token.displayToken,
+            message: `Your turn! Token ${token.displayToken} is being called.`,
+          };
+
+          await this.notificationService.logNotification(
+            id,
+            NotificationChannel.FCM,
+            NotificationEvent.CALLED,
+            user.fcmToken,
+            notificationPayload,
+          );
+
+          this.notificationService.sendFcmNotification(
+            user.fcmToken,
+            'Your Turn!',
+            `Token ${token.displayToken} is being called. Please proceed.`,
+            notificationPayload,
+          ).catch(err => this.logger.error(`FCM notification failed: ${err.message}`));
+        }
+      } catch (error) {
+        this.logger.error(`Failed to send notification: ${error.message}`);
+      }
+    }
+
     return token;
   }
 

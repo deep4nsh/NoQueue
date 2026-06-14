@@ -9,6 +9,7 @@ import { ServiceModule } from './modules/service/service.module';
 import { TokenModule } from './modules/token/token.module';
 import { UserModule } from './modules/user/user.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { NotificationModule } from './modules/notification/notification.module';
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 import { RolesGuard } from './modules/auth/guards/roles.guard';
 
@@ -29,6 +30,7 @@ import { RolesGuard } from './modules/auth/guards/roles.guard';
     QueueModule,
     ServiceModule,
     TokenModule,
+    NotificationModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },

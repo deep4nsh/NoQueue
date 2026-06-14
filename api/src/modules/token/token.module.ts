@@ -6,10 +6,14 @@ import { ServiceEntity, ServiceSchema } from '../service/service.schema';
 import { TokenService } from './token.service';
 import { TokenController } from './token.controller';
 import { GatewaysModule } from '../../gateways/gateways.module';
+import { NotificationModule } from '../notification/notification.module';
+import { UserModule } from '../user/user.module';
 
 @Module({
   imports: [
     GatewaysModule,
+    NotificationModule,
+    UserModule,
     MongooseModule.forFeature([
       { name: TokenEntity.name, schema: TokenSchema },
       { name: QueueEntity.name, schema: QueueSchema },
