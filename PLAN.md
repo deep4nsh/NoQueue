@@ -613,6 +613,8 @@ noqueue.app/join/{branchSlug}
 
 Placement: reception desk, waiting room, front door, parking area, business card.
 
+**Printable Posters**: The Admin App will include a QR Customization & Print feature, allowing business owners to generate printable PDFs of the QR code. They can customize the poster with their brand logo, colors, and instructions (e.g., "Scan here to join the queue") to stick on their shop door or desk.
+
 ---
 
 ## Infrastructure
@@ -749,7 +751,7 @@ This allows:
 ### Week 6: Polish + Pilot
 
 - [ ] WhatsApp Bot conversational flows
-- [ ] QR generation + print PDF export
+- [ ] QR generation + customizable PDF poster export for printing (in Admin App)
 - [ ] Error handling, loading states, offline detection
 - [ ] Onboard 1 pilot business (clinic or salon)
 - [ ] Monitoring: Sentry, UptimeRobot

@@ -12,11 +12,13 @@ const config_1 = require("@nestjs/config");
 const core_1 = require("@nestjs/core");
 const mongoose_1 = require("@nestjs/mongoose");
 const business_module_1 = require("./modules/business/business.module");
+const branch_module_1 = require("./modules/branch/branch.module");
 const queue_module_1 = require("./modules/queue/queue.module");
 const service_module_1 = require("./modules/service/service.module");
 const token_module_1 = require("./modules/token/token.module");
 const user_module_1 = require("./modules/user/user.module");
 const auth_module_1 = require("./modules/auth/auth.module");
+const notification_module_1 = require("./modules/notification/notification.module");
 const jwt_auth_guard_1 = require("./modules/auth/guards/jwt-auth.guard");
 const roles_guard_1 = require("./modules/auth/guards/roles.guard");
 let AppModule = class AppModule {
@@ -36,9 +38,11 @@ exports.AppModule = AppModule = __decorate([
             user_module_1.UserModule,
             auth_module_1.AuthModule,
             business_module_1.BusinessModule,
+            branch_module_1.BranchModule,
             queue_module_1.QueueModule,
             service_module_1.ServiceModule,
             token_module_1.TokenModule,
+            notification_module_1.NotificationModule,
         ],
         providers: [
             { provide: core_1.APP_GUARD, useClass: jwt_auth_guard_1.JwtAuthGuard },

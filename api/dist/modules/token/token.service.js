@@ -11,6 +11,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
+var TokenService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.TokenService = void 0;
 const common_1 = require("@nestjs/common");
@@ -20,12 +21,18 @@ const token_schema_1 = require("./token.schema");
 const queue_schema_1 = require("../queue/queue.schema");
 const service_schema_1 = require("../service/service.schema");
 const queue_gateway_1 = require("../../gateways/queue.gateway");
-let TokenService = class TokenService {
-    constructor(tokenModel, queueModel, serviceModel, gateway) {
+const notification_service_1 = require("../notification/notification.service");
+const notification_schema_1 = require("../notification/notification.schema");
+const user_service_1 = require("../user/user.service");
+let TokenService = TokenService_1 = class TokenService {
+    constructor(tokenModel, queueModel, serviceModel, gateway, notificationService, userService) {
         this.tokenModel = tokenModel;
         this.queueModel = queueModel;
         this.serviceModel = serviceModel;
         this.gateway = gateway;
+        this.notificationService = notificationService;
+        this.userService = userService;
+        this.logger = new common_1.Logger(TokenService_1.name);
     }
     async join(dto, userId) {
         const queue = await this._getOpenQueue(dto.queueId);
@@ -71,6 +78,23 @@ let TokenService = class TokenService {
         });
         this.gateway.emitTokenJoined(dto.queueId, token.toObject());
         this.gateway.emitQueueRefresh(dto.queueId);
+        if (token.customer.userId) {
+            try {
+                const user = await this.userService.findById(token.customer.userId.toString());
+                if (user && user.fcmToken) {
+                    const notificationPayload = {
+                        displayToken: token.displayToken,
+                        position: token.position.toString(),
+                        estimatedWait: token.estimatedWaitMinutes.toString(),
+                    };
+                    await this.notificationService.logNotification(token._id.toString(), notification_schema_1.NotificationChannel.FCM, notification_schema_1.NotificationEvent.TOKEN_JOINED, user.fcmToken, notificationPayload);
+                    this.notificationService.sendFcmNotification(user.fcmToken, 'Token Added', `Your token is ${token.displayToken}. Position: ${token.position}, Est. wait: ${token.estimatedWaitMinutes} mins.`, notificationPayload).catch(err => this.logger.error(`FCM notification failed: ${err.message}`));
+                }
+            }
+            catch (error) {
+                this.logger.error(`Failed to send join notification: ${error.message}`);
+            }
+        }
         return token;
     }
     async createEmergency(dto) {
@@ -150,6 +174,22 @@ let TokenService = class TokenService {
             customerName: token.customer.name,
         });
         this.gateway.emitQueueRefresh(queueId);
+        if (token.customer.userId) {
+            try {
+                const user = await this.userService.findById(token.customer.userId.toString());
+                if (user && user.fcmToken) {
+                    const notificationPayload = {
+                        displayToken: token.displayToken,
+                        message: `Your turn! Token ${token.displayToken} is being called.`,
+                    };
+                    await this.notificationService.logNotification(id, notification_schema_1.NotificationChannel.FCM, notification_schema_1.NotificationEvent.CALLED, user.fcmToken, notificationPayload);
+                    this.notificationService.sendFcmNotification(user.fcmToken, 'Your Turn!', `Token ${token.displayToken} is being called. Please proceed.`, notificationPayload).catch(err => this.logger.error(`FCM notification failed: ${err.message}`));
+                }
+            }
+            catch (error) {
+                this.logger.error(`Failed to send notification: ${error.message}`);
+            }
+        }
         return token;
     }
     async complete(id) {
@@ -280,7 +320,7 @@ let TokenService = class TokenService {
     }
 };
 exports.TokenService = TokenService;
-exports.TokenService = TokenService = __decorate([
+exports.TokenService = TokenService = TokenService_1 = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, mongoose_1.InjectModel)(token_schema_1.TokenEntity.name)),
     __param(1, (0, mongoose_1.InjectModel)(queue_schema_1.QueueEntity.name)),
@@ -288,6 +328,8 @@ exports.TokenService = TokenService = __decorate([
     __metadata("design:paramtypes", [mongoose_2.Model,
         mongoose_2.Model,
         mongoose_2.Model,
-        queue_gateway_1.QueueGateway])
+        queue_gateway_1.QueueGateway,
+        notification_service_1.NotificationService,
+        user_service_1.UserService])
 ], TokenService);
 //# sourceMappingURL=token.service.js.map

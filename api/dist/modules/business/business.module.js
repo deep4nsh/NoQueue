@@ -10,13 +10,17 @@ exports.BusinessModule = void 0;
 const common_1 = require("@nestjs/common");
 const mongoose_1 = require("@nestjs/mongoose");
 const business_schema_1 = require("./business.schema");
+const business_controller_1 = require("./business.controller");
+const business_service_1 = require("./business.service");
 let BusinessModule = class BusinessModule {
 };
 exports.BusinessModule = BusinessModule;
 exports.BusinessModule = BusinessModule = __decorate([
     (0, common_1.Module)({
         imports: [mongoose_1.MongooseModule.forFeature([{ name: business_schema_1.Business.name, schema: business_schema_1.BusinessSchema }])],
-        exports: [mongoose_1.MongooseModule],
+        controllers: [business_controller_1.BusinessController],
+        providers: [business_service_1.BusinessService],
+        exports: [business_service_1.BusinessService, mongoose_1.MongooseModule],
     })
 ], BusinessModule);
 //# sourceMappingURL=business.module.js.map

@@ -11,6 +11,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.BusinessSchema = exports.Business = exports.BusinessType = void 0;
 const mongoose_1 = require("@nestjs/mongoose");
+const mongoose_2 = require("mongoose");
 var BusinessType;
 (function (BusinessType) {
     BusinessType["CLINIC"] = "CLINIC";
@@ -64,6 +65,10 @@ __decorate([
     (0, mongoose_1.Prop)({ default: 'Asia/Kolkata' }),
     __metadata("design:type", String)
 ], Business.prototype, "timezone", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: 'UserEntity' }),
+    __metadata("design:type", mongoose_2.Types.ObjectId)
+], Business.prototype, "owner", void 0);
 exports.Business = Business = __decorate([
     (0, mongoose_1.Schema)({ timestamps: true })
 ], Business);

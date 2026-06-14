@@ -6,12 +6,17 @@ import { JoinTokenDto } from './dto/join-token.dto';
 import { EmergencyTokenDto } from './dto/emergency-token.dto';
 import { UpdateChargeDto } from './dto/update-charge.dto';
 import { QueueGateway } from '../../gateways/queue.gateway';
+import { NotificationService } from '../notification/notification.service';
+import { UserService } from '../user/user.service';
 export declare class TokenService {
     private readonly tokenModel;
     private readonly queueModel;
     private readonly serviceModel;
     private readonly gateway;
-    constructor(tokenModel: Model<TokenDocument>, queueModel: Model<QueueDocument>, serviceModel: Model<ServiceDocument>, gateway: QueueGateway);
+    private readonly notificationService;
+    private readonly userService;
+    private readonly logger;
+    constructor(tokenModel: Model<TokenDocument>, queueModel: Model<QueueDocument>, serviceModel: Model<ServiceDocument>, gateway: QueueGateway, notificationService: NotificationService, userService: UserService);
     join(dto: JoinTokenDto, userId?: string): Promise<TokenDocument>;
     createEmergency(dto: EmergencyTokenDto): Promise<TokenDocument>;
     findById(id: string): Promise<TokenDocument>;
