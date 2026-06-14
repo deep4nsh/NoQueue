@@ -1,19 +1,38 @@
 import { Module } from '@nestjs/common';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { APP_GUARD } from '@nestjs/core';
 import { MongooseModule } from '@nestjs/mongoose';
 import { BusinessModule } from './modules/business/business.module';
 import { QueueModule } from './modules/queue/queue.module';
 import { ServiceModule } from './modules/service/service.module';
 import { TokenModule } from './modules/token/token.module';
 import { GatewaysModule } from './gateways/gateways.module';
+import { UserModule } from './modules/user/user.module';
+import { AuthModule } from './modules/auth/auth.module';
+import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
+import { RolesGuard } from './modules/auth/guards/roles.guard';
 
 @Module({
   imports: [
-    MongooseModule.forRoot(process.env.MONGODB_URI ?? 'mongodb://localhost:27017/noqueue'),
+    ConfigModule.forRoot({ isGlobal: true }),
+    MongooseModule.forRootAsync({
+      imports: [ConfigModule],
+      useFactory: (cfg: ConfigService) => ({
+        uri: cfg.get<string>('MONGODB_URI') ?? 'mongodb://localhost:27017/noqueue',
+      }),
+      inject: [ConfigService],
+    }),
+    UserModule,
+    AuthModule,
     GatewaysModule,
     BusinessModule,
     QueueModule,
     ServiceModule,
     TokenModule,
+  ],
+  providers: [
+    { provide: APP_GUARD, useClass: JwtAuthGuard },
+    { provide: APP_GUARD, useClass: RolesGuard },
   ],
 })
 export class AppModule {}

@@ -12,7 +12,7 @@ export declare class TokenService {
     private readonly serviceModel;
     private readonly gateway;
     constructor(tokenModel: Model<TokenDocument>, queueModel: Model<QueueDocument>, serviceModel: Model<ServiceDocument>, gateway: QueueGateway);
-    join(dto: JoinTokenDto): Promise<TokenDocument>;
+    join(dto: JoinTokenDto, userId?: string): Promise<TokenDocument>;
     createEmergency(dto: EmergencyTokenDto): Promise<TokenDocument>;
     findById(id: string): Promise<TokenDocument>;
     getQueueTokens(queueId: string, status?: TokenStatus[]): Promise<TokenDocument[]>;

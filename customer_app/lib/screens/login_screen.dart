@@ -32,7 +32,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           try {
             final result = await firebase_auth.FirebaseAuth.instance.signInWithCredential(cred);
             if (result.user != null && mounted) {
-              await ref.read(currentUserProvider.notifier).saveProfile(result.user!, phone: fullPhone);
+              await ref.read(currentUserProvider.notifier).loginWithFirebaseUser(result.user!);
               _navigateAfterAuth();
             }
           } catch (e) {

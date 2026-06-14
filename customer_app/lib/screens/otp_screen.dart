@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import '../providers/auth_provider.dart';
 import '../theme/app_theme.dart';
 
@@ -64,15 +65,14 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
     }
     setState(() => _isLoading = true);
     try {
-      final user = await ref.read(authServiceProvider).verifyOTP(
+      final firebaseUser = await ref.read(authServiceProvider).verifyOTP(
         widget.verificationId,
         _otp,
       );
-      if (user != null && mounted) {
-        await ref.read(currentUserProvider.notifier).saveProfile(
-              user,
-              phone: widget.phoneNumber,
-            );
+      if (firebaseUser != null && mounted) {
+        // Exchange Firebase token for backend JWT and load user profile
+        await ref.read(currentUserProvider.notifier).loginWithFirebaseUser(firebaseUser);
+
         final currentUser = ref.read(currentUserProvider);
         if (currentUser != null &&
             (currentUser.name == 'Unknown' || currentUser.name.trim().isEmpty)) {

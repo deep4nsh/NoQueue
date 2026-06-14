@@ -8,24 +8,43 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AppModule = void 0;
 const common_1 = require("@nestjs/common");
+const config_1 = require("@nestjs/config");
+const core_1 = require("@nestjs/core");
 const mongoose_1 = require("@nestjs/mongoose");
 const business_module_1 = require("./modules/business/business.module");
 const queue_module_1 = require("./modules/queue/queue.module");
 const service_module_1 = require("./modules/service/service.module");
 const token_module_1 = require("./modules/token/token.module");
 const gateways_module_1 = require("./gateways/gateways.module");
+const user_module_1 = require("./modules/user/user.module");
+const auth_module_1 = require("./modules/auth/auth.module");
+const jwt_auth_guard_1 = require("./modules/auth/guards/jwt-auth.guard");
+const roles_guard_1 = require("./modules/auth/guards/roles.guard");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
 exports.AppModule = AppModule = __decorate([
     (0, common_1.Module)({
         imports: [
-            mongoose_1.MongooseModule.forRoot(process.env.MONGODB_URI ?? 'mongodb://localhost:27017/noqueue'),
+            config_1.ConfigModule.forRoot({ isGlobal: true }),
+            mongoose_1.MongooseModule.forRootAsync({
+                imports: [config_1.ConfigModule],
+                useFactory: (cfg) => ({
+                    uri: cfg.get('MONGODB_URI') ?? 'mongodb://localhost:27017/noqueue',
+                }),
+                inject: [config_1.ConfigService],
+            }),
+            user_module_1.UserModule,
+            auth_module_1.AuthModule,
             gateways_module_1.GatewaysModule,
             business_module_1.BusinessModule,
             queue_module_1.QueueModule,
             service_module_1.ServiceModule,
             token_module_1.TokenModule,
+        ],
+        providers: [
+            { provide: core_1.APP_GUARD, useClass: jwt_auth_guard_1.JwtAuthGuard },
+            { provide: core_1.APP_GUARD, useClass: roles_guard_1.RolesGuard },
         ],
     })
 ], AppModule);

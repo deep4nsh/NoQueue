@@ -27,7 +27,7 @@ let TokenService = class TokenService {
         this.serviceModel = serviceModel;
         this.gateway = gateway;
     }
-    async join(dto) {
+    async join(dto, userId) {
         const queue = await this._getOpenQueue(dto.queueId);
         const service = dto.serviceId
             ? await this.serviceModel.findById(dto.serviceId).exec()
@@ -48,11 +48,11 @@ let TokenService = class TokenService {
                 name: dto.customer.name,
                 phone: dto.customer.phone ?? null,
                 email: null,
-                userId: null,
+                userId: userId ? new mongoose_2.Types.ObjectId(userId) : null,
             },
             status: token_schema_1.TokenStatus.WAITING,
             priority: token_schema_1.TokenPriority.NORMAL,
-            source: token_schema_1.TokenSource.RECEPTIONIST,
+            source: token_schema_1.TokenSource.WEB,
             position,
             estimatedWaitMinutes: estimatedWait,
             service: service ? this._snapshotService(service) : null,

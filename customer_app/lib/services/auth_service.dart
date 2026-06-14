@@ -2,11 +2,15 @@ import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/models.dart';
+import 'api_service.dart';
+import 'token_storage_service.dart';
 
 class AuthService {
   final firebase_auth.FirebaseAuth _firebaseAuth = firebase_auth.FirebaseAuth.instance;
   final GoogleSignIn _googleSignIn = GoogleSignIn();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final _apiService = ApiService();
+  final _tokenStorage = TokenStorageService();
 
   // Stream of auth state changes
   Stream<firebase_auth.User?> get authStateChanges => _firebaseAuth.authStateChanges();
@@ -166,8 +170,51 @@ class AuthService {
     return linkOrMergePhoneCredential(credential);
   }
 
+  // Exchange Firebase token for backend JWT
+  Future<User?> exchangeFirebaseToken(firebase_auth.User firebaseUser) async {
+    try {
+      final idToken = await firebaseUser.getIdToken();
+      final response = await _apiService.post(
+        '/auth/firebase',
+        {'idToken': idToken},
+      );
+
+      if (response['accessToken'] != null && response['user'] != null) {
+        // Store JWT in secure storage
+        await _tokenStorage.saveJwt(response['accessToken']);
+
+        // Return user from backend response
+        return User.fromJson(response['user']);
+      }
+    } catch (e) {
+      print('Error exchanging Firebase token: $e');
+    }
+    return null;
+  }
+
+  // Load user from backend using stored JWT
+  Future<User?> getCurrentUserFromBackend() async {
+    try {
+      final jwt = await _tokenStorage.getJwt();
+      if (jwt == null) return null;
+
+      final response = await _apiService.get('/users/me');
+      if (response != null) {
+        return User.fromJson(response);
+      }
+    } catch (e) {
+      if (e.toString().contains('401')) {
+        // JWT expired or invalid
+        await _tokenStorage.clearJwt();
+      }
+      print('Error loading user from backend: $e');
+    }
+    return null;
+  }
+
   // Sign out
   Future<void> signOut() async {
+    await _tokenStorage.clearJwt();
     await _googleSignIn.signOut();
     await _firebaseAuth.signOut();
   }

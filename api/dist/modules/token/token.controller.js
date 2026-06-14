@@ -20,12 +20,18 @@ const join_token_dto_1 = require("./dto/join-token.dto");
 const emergency_token_dto_1 = require("./dto/emergency-token.dto");
 const update_charge_dto_1 = require("./dto/update-charge.dto");
 const token_schema_1 = require("./token.schema");
+const public_decorator_1 = require("../auth/decorators/public.decorator");
+const roles_decorator_1 = require("../auth/decorators/roles.decorator");
+const user_schema_1 = require("../user/user.schema");
+const current_user_decorator_1 = require("../auth/decorators/current-user.decorator");
+const optional_jwt_auth_guard_1 = require("../auth/guards/optional-jwt-auth.guard");
 let TokenController = class TokenController {
     constructor(tokenService) {
         this.tokenService = tokenService;
     }
-    join(dto) {
-        return this.tokenService.join(dto);
+    join(dto, user) {
+        const userId = user?._id?.toString();
+        return this.tokenService.join(dto, userId);
     }
     createEmergency(dto) {
         return this.tokenService.createEmergency(dto);
@@ -61,14 +67,19 @@ let TokenController = class TokenController {
 exports.TokenController = TokenController;
 __decorate([
     (0, common_1.Post)('join'),
+    (0, public_decorator_1.Public)(),
+    (0, common_1.UseGuards)(optional_jwt_auth_guard_1.OptionalJwtAuthGuard),
     (0, swagger_1.ApiOperation)({ summary: 'Customer joins a queue (normal token)' }),
     __param(0, (0, common_1.Body)()),
+    __param(1, (0, current_user_decorator_1.CurrentUser)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [join_token_dto_1.JoinTokenDto]),
+    __metadata("design:paramtypes", [join_token_dto_1.JoinTokenDto, Object]),
     __metadata("design:returntype", void 0)
 ], TokenController.prototype, "join", null);
 __decorate([
     (0, common_1.Post)('emergency'),
+    (0, roles_decorator_1.Roles)(user_schema_1.Role.RECEPTIONIST, user_schema_1.Role.OWNER, user_schema_1.Role.ADMIN),
+    (0, swagger_1.ApiBearerAuth)(),
     (0, swagger_1.ApiOperation)({ summary: 'Receptionist issues an emergency token (jumps queue)' }),
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
@@ -77,6 +88,8 @@ __decorate([
 ], TokenController.prototype, "createEmergency", null);
 __decorate([
     (0, common_1.Get)('queue/:queueId'),
+    (0, roles_decorator_1.Roles)(user_schema_1.Role.RECEPTIONIST, user_schema_1.Role.OWNER, user_schema_1.Role.ADMIN),
+    (0, swagger_1.ApiBearerAuth)(),
     (0, swagger_1.ApiOperation)({ summary: 'Get all tokens for a queue, optionally filtered by status' }),
     (0, swagger_1.ApiQuery)({ name: 'status', required: false, isArray: true, enum: token_schema_1.TokenStatus }),
     __param(0, (0, common_1.Param)('queueId')),
@@ -86,6 +99,7 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], TokenController.prototype, "getQueueTokens", null);
 __decorate([
+    (0, public_decorator_1.Public)(),
     (0, common_1.Get)(':id'),
     (0, swagger_1.ApiOperation)({ summary: 'Get a token by ID' }),
     __param(0, (0, common_1.Param)('id')),
@@ -95,6 +109,8 @@ __decorate([
 ], TokenController.prototype, "findOne", null);
 __decorate([
     (0, common_1.Patch)(':id/call'),
+    (0, roles_decorator_1.Roles)(user_schema_1.Role.RECEPTIONIST, user_schema_1.Role.OWNER, user_schema_1.Role.ADMIN),
+    (0, swagger_1.ApiBearerAuth)(),
     (0, swagger_1.ApiOperation)({ summary: 'Call a WAITING token — set status to CALLED, notify customer' }),
     __param(0, (0, common_1.Param)('id')),
     __metadata("design:type", Function),
@@ -103,6 +119,8 @@ __decorate([
 ], TokenController.prototype, "call", null);
 __decorate([
     (0, common_1.Patch)(':id/complete'),
+    (0, roles_decorator_1.Roles)(user_schema_1.Role.RECEPTIONIST, user_schema_1.Role.OWNER, user_schema_1.Role.ADMIN),
+    (0, swagger_1.ApiBearerAuth)(),
     (0, swagger_1.ApiOperation)({ summary: 'Mark a token as completed' }),
     __param(0, (0, common_1.Param)('id')),
     __metadata("design:type", Function),
@@ -111,6 +129,8 @@ __decorate([
 ], TokenController.prototype, "complete", null);
 __decorate([
     (0, common_1.Patch)(':id/skip'),
+    (0, roles_decorator_1.Roles)(user_schema_1.Role.RECEPTIONIST, user_schema_1.Role.OWNER, user_schema_1.Role.ADMIN),
+    (0, swagger_1.ApiBearerAuth)(),
     (0, swagger_1.ApiOperation)({ summary: 'Skip current token — move it to SKIPPED, recalculate queue' }),
     __param(0, (0, common_1.Param)('id')),
     __metadata("design:type", Function),
@@ -119,6 +139,8 @@ __decorate([
 ], TokenController.prototype, "skip", null);
 __decorate([
     (0, common_1.Patch)(':id/recall'),
+    (0, roles_decorator_1.Roles)(user_schema_1.Role.RECEPTIONIST, user_schema_1.Role.OWNER, user_schema_1.Role.ADMIN),
+    (0, swagger_1.ApiBearerAuth)(),
     (0, swagger_1.ApiOperation)({ summary: 'Re-notify customer that their token is called (no status change)' }),
     __param(0, (0, common_1.Param)('id')),
     __metadata("design:type", Function),
@@ -126,6 +148,7 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], TokenController.prototype, "recall", null);
 __decorate([
+    (0, public_decorator_1.Public)(),
     (0, common_1.Patch)(':id/cancel'),
     (0, swagger_1.ApiOperation)({ summary: 'Cancel a token' }),
     __param(0, (0, common_1.Param)('id')),
@@ -135,6 +158,8 @@ __decorate([
 ], TokenController.prototype, "cancel", null);
 __decorate([
     (0, common_1.Patch)(':id/charge'),
+    (0, roles_decorator_1.Roles)(user_schema_1.Role.RECEPTIONIST, user_schema_1.Role.OWNER, user_schema_1.Role.ADMIN),
+    (0, swagger_1.ApiBearerAuth)(),
     (0, swagger_1.ApiOperation)({ summary: 'Set or update the charge for a token (Confirmed or Waived)' }),
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.Body)()),

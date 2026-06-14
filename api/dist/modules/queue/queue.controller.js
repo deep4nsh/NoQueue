@@ -18,6 +18,9 @@ const swagger_1 = require("@nestjs/swagger");
 const queue_service_1 = require("./queue.service");
 const create_queue_dto_1 = require("./dto/create-queue.dto");
 const update_queue_settings_dto_1 = require("./dto/update-queue-settings.dto");
+const public_decorator_1 = require("../auth/decorators/public.decorator");
+const roles_decorator_1 = require("../auth/decorators/roles.decorator");
+const user_schema_1 = require("../user/user.schema");
 let QueueController = class QueueController {
     constructor(queueService) {
         this.queueService = queueService;
@@ -47,6 +50,7 @@ let QueueController = class QueueController {
 exports.QueueController = QueueController;
 __decorate([
     (0, common_1.Post)(),
+    (0, roles_decorator_1.Roles)(user_schema_1.Role.RECEPTIONIST, user_schema_1.Role.OWNER, user_schema_1.Role.ADMIN),
     (0, swagger_1.ApiOperation)({ summary: "Create today's queue for a branch (idempotent)" }),
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
@@ -54,6 +58,7 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], QueueController.prototype, "create", null);
 __decorate([
+    (0, public_decorator_1.Public)(),
     (0, common_1.Get)('branch/:branchId'),
     (0, swagger_1.ApiOperation)({ summary: "Get today's active queue for a branch" }),
     __param(0, (0, common_1.Param)('branchId')),
@@ -62,6 +67,7 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], QueueController.prototype, "findByBranch", null);
 __decorate([
+    (0, public_decorator_1.Public)(),
     (0, common_1.Get)(':id'),
     (0, swagger_1.ApiOperation)({ summary: 'Get queue by ID with live waiting/called counts' }),
     __param(0, (0, common_1.Param)('id')),
@@ -71,6 +77,7 @@ __decorate([
 ], QueueController.prototype, "findOne", null);
 __decorate([
     (0, common_1.Patch)(':id/open'),
+    (0, roles_decorator_1.Roles)(user_schema_1.Role.RECEPTIONIST, user_schema_1.Role.OWNER, user_schema_1.Role.ADMIN),
     (0, swagger_1.ApiOperation)({ summary: 'Open (or resume from pause) the queue' }),
     __param(0, (0, common_1.Param)('id')),
     __metadata("design:type", Function),
@@ -79,6 +86,7 @@ __decorate([
 ], QueueController.prototype, "open", null);
 __decorate([
     (0, common_1.Patch)(':id/pause'),
+    (0, roles_decorator_1.Roles)(user_schema_1.Role.RECEPTIONIST, user_schema_1.Role.OWNER, user_schema_1.Role.ADMIN),
     (0, swagger_1.ApiOperation)({ summary: 'Pause the queue — no new tokens, existing tokens still served' }),
     __param(0, (0, common_1.Param)('id')),
     __metadata("design:type", Function),
@@ -87,6 +95,7 @@ __decorate([
 ], QueueController.prototype, "pause", null);
 __decorate([
     (0, common_1.Patch)(':id/close'),
+    (0, roles_decorator_1.Roles)(user_schema_1.Role.OWNER, user_schema_1.Role.ADMIN),
     (0, swagger_1.ApiOperation)({ summary: 'Close the queue for the day' }),
     __param(0, (0, common_1.Param)('id')),
     __metadata("design:type", Function),
@@ -95,6 +104,7 @@ __decorate([
 ], QueueController.prototype, "close", null);
 __decorate([
     (0, common_1.Patch)(':id/settings'),
+    (0, roles_decorator_1.Roles)(user_schema_1.Role.OWNER, user_schema_1.Role.ADMIN),
     (0, swagger_1.ApiOperation)({ summary: 'Update queue settings (avg time, emergency tokens, etc.)' }),
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.Body)()),
@@ -104,6 +114,7 @@ __decorate([
 ], QueueController.prototype, "updateSettings", null);
 exports.QueueController = QueueController = __decorate([
     (0, swagger_1.ApiTags)('queue'),
+    (0, swagger_1.ApiBearerAuth)(),
     (0, common_1.Controller)('queue'),
     __metadata("design:paramtypes", [queue_service_1.QueueService])
 ], QueueController);

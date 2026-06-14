@@ -32,7 +32,7 @@ export class TokenService {
     private readonly gateway: QueueGateway,
   ) {}
 
-  async join(dto: JoinTokenDto): Promise<TokenDocument> {
+  async join(dto: JoinTokenDto, userId?: string): Promise<TokenDocument> {
     const queue = await this._getOpenQueue(dto.queueId);
     const service = dto.serviceId
       ? await this.serviceModel.findById(dto.serviceId).exec()
@@ -56,11 +56,11 @@ export class TokenService {
         name: dto.customer.name,
         phone: dto.customer.phone ?? null,
         email: null,
-        userId: null,
+        userId: userId ? new Types.ObjectId(userId) : null,
       },
       status: TokenStatus.WAITING,
       priority: TokenPriority.NORMAL,
-      source: TokenSource.RECEPTIONIST,
+      source: TokenSource.WEB,
       position,
       estimatedWaitMinutes: estimatedWait,
       service: service ? this._snapshotService(service) : null,

@@ -76,7 +76,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     if (isAuthenticated) {
       final currentUser = ref.read(currentUserProvider);
       if (currentUser != null) {
-        if (currentUser.phone.isEmpty) {
+        if (currentUser.phone == null || currentUser.phone!.isEmpty) {
           context.go('/link-phone');
         } else if (currentUser.name == 'Unknown' || currentUser.name.trim().isEmpty) {
           context.go('/edit-profile', extra: {'isSetup': true});

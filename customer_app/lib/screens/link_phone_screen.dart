@@ -39,8 +39,8 @@ class _LinkPhoneScreenState extends ConsumerState<LinkPhoneScreen> {
           // Auto-verify if possible
           try {
             final user = await ref.read(authServiceProvider).linkOrMergePhoneCredential(credential);
-            if (user != null) {
-              await ref.read(currentUserProvider.notifier).saveProfile(user, phone: fullPhoneNumber);
+            if (user != null && mounted) {
+              await ref.read(currentUserProvider.notifier).loginWithFirebaseUser(user);
               if (mounted) {
                 final currentUser = ref.read(currentUserProvider);
                 if (currentUser != null && (currentUser.name == 'Unknown' || currentUser.name.trim().isEmpty)) {
@@ -101,9 +101,7 @@ class _LinkPhoneScreenState extends ConsumerState<LinkPhoneScreen> {
       );
 
       if (user != null && mounted) {
-        final phoneNumber = _phoneController.text.trim();
-        final fullPhoneNumber = phoneNumber.startsWith('+91') ? phoneNumber : '+91$phoneNumber';
-        await ref.read(currentUserProvider.notifier).saveProfile(user, phone: fullPhoneNumber);
+        await ref.read(currentUserProvider.notifier).loginWithFirebaseUser(user);
         if (mounted) {
           final currentUser = ref.read(currentUserProvider);
           if (currentUser != null && (currentUser.name == 'Unknown' || currentUser.name.trim().isEmpty)) {
