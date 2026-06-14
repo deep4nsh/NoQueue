@@ -890,9 +890,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   ),
                 ),
                 const SizedBox(height: 6),
-                if (user?.phone != null && user!.phone.isNotEmpty)
+                if (user?.phone?.isNotEmpty ?? false)
                   Text(
-                    user!.phone,
+                    user!.phone!,
                     style: TextStyle(
                       fontSize: 14,
                       color: Colors.white.withOpacity(0.8),
