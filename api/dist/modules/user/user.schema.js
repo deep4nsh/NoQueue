@@ -70,7 +70,4 @@ exports.UserEntity = UserEntity = __decorate([
     (0, mongoose_1.Schema)({ timestamps: true })
 ], UserEntity);
 exports.UserSchema = mongoose_1.SchemaFactory.createForClass(UserEntity);
-exports.UserSchema.index({ phone: 1 }, { sparse: true, unique: true });
-exports.UserSchema.index({ email: 1 }, { sparse: true, unique: true });
-exports.UserSchema.index({ firebaseUid: 1 }, { sparse: true, unique: true });
 //# sourceMappingURL=user.schema.js.map

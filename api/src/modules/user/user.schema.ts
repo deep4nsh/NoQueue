@@ -49,6 +49,4 @@ export class UserEntity {
 export const UserSchema = SchemaFactory.createForClass(UserEntity);
 
 // Create indexes
-UserSchema.index({ phone: 1 }, { sparse: true, unique: true });
-UserSchema.index({ email: 1 }, { sparse: true, unique: true });
-UserSchema.index({ firebaseUid: 1 }, { sparse: true, unique: true });
+

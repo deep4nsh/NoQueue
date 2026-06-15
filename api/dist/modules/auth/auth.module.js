@@ -71,7 +71,7 @@ exports.AuthModule = AuthModule = __decorate([
             roles_guard_1.RolesGuard,
         ],
         controllers: [auth_controller_1.AuthController],
-        exports: [auth_service_1.AuthService, jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard, jwt_1.JwtModule],
+        exports: [auth_service_1.AuthService, jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard, jwt_1.JwtModule, 'FIREBASE_APP'],
     })
 ], AuthModule);
 //# sourceMappingURL=auth.module.js.map

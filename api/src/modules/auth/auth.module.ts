@@ -64,6 +64,6 @@ const firebaseAppProvider = {
     RolesGuard,
   ],
   controllers: [AuthController],
-  exports: [AuthService, JwtAuthGuard, RolesGuard, JwtModule],
+  exports: [AuthService, JwtAuthGuard, RolesGuard, JwtModule, 'FIREBASE_APP'],
 })
 export class AuthModule {}
